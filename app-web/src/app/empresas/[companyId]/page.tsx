@@ -34,6 +34,22 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         </div>
       </header>
 
+      <section className="mt-8 rounded-[2rem] bg-slate-950 p-6 text-white shadow-xl">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-medium text-blue-200">Acciones principales</p>
+            <h2 className="mt-1 text-3xl font-semibold tracking-tight">Registra ingresos y gastos</h2>
+          </div>
+          <p className="max-w-xl text-sm leading-6 text-slate-300">
+            Esta es la tarea principal del cliente: capturar rapidamente lo que entra y lo que sale. El XML queda como apoyo automatico cuando exista comprobante.
+          </p>
+        </div>
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <TransactionForm companyId={company.id} type="income" categories={company.categories.map((item) => item.name)} />
+          <TransactionForm companyId={company.id} type="expense" categories={company.categories.map((item) => item.name)} />
+        </div>
+      </section>
+
       <section className="mt-8 grid gap-4 md:grid-cols-4">
         <Metric label="Ingresos" value={currency(income)} tone="emerald" />
         <Metric label="Gastos" value={currency(expense)} tone="rose" />
@@ -41,13 +57,11 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         <Metric label="Requieren correccion" value={String(corrections)} tone="blue" />
       </section>
 
-      <section className="mt-8 grid gap-6 xl:grid-cols-[360px_1fr]">
-        <div className="grid gap-6">
-          <TransactionForm companyId={company.id} type="income" categories={company.categories.map((item) => item.name)} />
-          <TransactionForm companyId={company.id} type="expense" categories={company.categories.map((item) => item.name)} />
+      <section className="mt-8 grid gap-6 xl:grid-cols-[340px_1fr]">
+        <div>
           <form action={importXml} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
             <h2 className="text-xl font-semibold">Importar XML</h2>
-            <p className="mt-2 text-sm text-slate-500">Detecta ingreso o gasto por RFC de la empresa.</p>
+            <p className="mt-2 text-sm text-slate-500">Opcional. Si el cliente tiene XML, el sistema crea el registro automaticamente.</p>
             <input type="hidden" name="companyId" value={company.id} />
             <input className="mt-5 w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-4 text-sm" name="xml" type="file" accept=".xml,text/xml,application/xml" required />
             <button className="mt-4 w-full rounded-xl bg-slate-950 px-4 py-3 font-medium text-white" type="submit">Subir XML</button>
@@ -115,28 +129,42 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: "e
 function TransactionForm({ companyId, type, categories }: { companyId: string; type: "income" | "expense"; categories: string[] }) {
   const isIncome = type === "income";
   const today = new Date().toISOString().slice(0, 10);
+  const tone = isIncome
+    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
+    : "border-rose-200 bg-rose-50 text-rose-950";
+  const buttonTone = isIncome ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700";
 
   return (
-    <form action={createTransaction} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-      <h2 className="text-xl font-semibold">{isIncome ? "Registrar ingreso" : "Registrar gasto"}</h2>
-      <p className="mt-2 text-sm text-slate-500">Captura manual rapida.</p>
+    <form action={createTransaction} className={`rounded-3xl border p-6 shadow-sm ${tone}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm font-medium opacity-70">{isIncome ? "Dinero que entra" : "Dinero que sale"}</p>
+          <h2 className="mt-1 text-3xl font-semibold">{isIncome ? "Registrar ingreso" : "Registrar gasto"}</h2>
+        </div>
+        <span className="rounded-full bg-white/80 px-3 py-1 text-sm font-semibold shadow-sm">
+          {isIncome ? "+" : "-"}
+        </span>
+      </div>
+      <p className="mt-3 text-sm opacity-70">Captura rapida: monto, fecha y descripcion.</p>
       <input type="hidden" name="companyId" value={companyId} />
       <input type="hidden" name="type" value={type} />
       <div className="mt-5 grid gap-3">
-        <input className="rounded-xl border border-slate-200 px-4 py-3" name="total" type="number" step="0.01" min="0" placeholder="Monto" required />
-        <input className="rounded-xl border border-slate-200 px-4 py-3" name="date" type="date" defaultValue={today} required />
-        <input className="rounded-xl border border-slate-200 px-4 py-3" name="description" placeholder={isIncome ? "Cliente o descripcion" : "Proveedor o descripcion"} required />
-        <input className="rounded-xl border border-slate-200 px-4 py-3" name="counterpartyName" placeholder={isIncome ? "Cliente opcional" : "Proveedor opcional"} />
+        <input className="rounded-xl border border-white/70 bg-white px-4 py-4 text-lg font-semibold shadow-sm" name="total" type="number" step="0.01" min="0" placeholder="Monto" required />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input className="rounded-xl border border-white/70 bg-white px-4 py-3 shadow-sm" name="date" type="date" defaultValue={today} required />
+          <select className="rounded-xl border border-white/70 bg-white px-4 py-3 shadow-sm" name="paymentStatus" defaultValue={isIncome ? "collected" : "paid"}>
+            <option value={isIncome ? "collected" : "paid"}>{isIncome ? "Cobrado" : "Pagado"}</option>
+            <option value="pending">Pendiente</option>
+          </select>
+        </div>
+        <input className="rounded-xl border border-white/70 bg-white px-4 py-3 shadow-sm" name="description" placeholder={isIncome ? "Cliente o descripcion" : "Proveedor o descripcion"} required />
+        <input className="rounded-xl border border-white/70 bg-white px-4 py-3 shadow-sm" name="counterpartyName" placeholder={isIncome ? "Cliente opcional" : "Proveedor opcional"} />
         {!isIncome ? (
-          <select className="rounded-xl border border-slate-200 px-4 py-3" name="categoryName" defaultValue="Sin clasificar">
+          <select className="rounded-xl border border-white/70 bg-white px-4 py-3 shadow-sm" name="categoryName" defaultValue="Sin clasificar">
             {categories.map((name) => <option key={name} value={name}>{name}</option>)}
           </select>
         ) : null}
-        <select className="rounded-xl border border-slate-200 px-4 py-3" name="paymentStatus" defaultValue={isIncome ? "collected" : "paid"}>
-          <option value={isIncome ? "collected" : "paid"}>{isIncome ? "Cobrado" : "Pagado"}</option>
-          <option value="pending">Pendiente</option>
-        </select>
-        <button className={`rounded-xl px-4 py-3 font-medium text-white ${isIncome ? "bg-emerald-600" : "bg-rose-600"}`} type="submit">
+        <button className={`rounded-xl px-4 py-4 text-lg font-semibold text-white transition ${buttonTone}`} type="submit">
           {isIncome ? "Guardar ingreso" : "Guardar gasto"}
         </button>
       </div>
