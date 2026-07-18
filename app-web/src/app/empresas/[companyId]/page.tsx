@@ -30,7 +30,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ compan
         <div>
           <Link href="/empresas" className="text-sm font-medium text-blue-600">Volver a empresas</Link>
           <h1 className="mt-2 text-3xl font-semibold">{company.tradeName || company.legalName}</h1>
-          <p className="mt-1 text-sm text-slate-500">RFC {company.rfc}</p>
+          <p className="mt-1 text-sm text-slate-500">RFC {company.rfc || "pendiente"}</p>
         </div>
       </header>
 
@@ -114,6 +114,7 @@ function Metric({ label, value, tone }: { label: string; value: string; tone: "e
 
 function TransactionForm({ companyId, type, categories }: { companyId: string; type: "income" | "expense"; categories: string[] }) {
   const isIncome = type === "income";
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <form action={createTransaction} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
@@ -123,7 +124,7 @@ function TransactionForm({ companyId, type, categories }: { companyId: string; t
       <input type="hidden" name="type" value={type} />
       <div className="mt-5 grid gap-3">
         <input className="rounded-xl border border-slate-200 px-4 py-3" name="total" type="number" step="0.01" min="0" placeholder="Monto" required />
-        <input className="rounded-xl border border-slate-200 px-4 py-3" name="date" type="date" required />
+        <input className="rounded-xl border border-slate-200 px-4 py-3" name="date" type="date" defaultValue={today} required />
         <input className="rounded-xl border border-slate-200 px-4 py-3" name="description" placeholder={isIncome ? "Cliente o descripcion" : "Proveedor o descripcion"} required />
         <input className="rounded-xl border border-slate-200 px-4 py-3" name="counterpartyName" placeholder={isIncome ? "Cliente opcional" : "Proveedor opcional"} />
         {!isIncome ? (

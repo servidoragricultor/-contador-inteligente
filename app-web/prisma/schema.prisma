@@ -39,7 +39,7 @@ model Company {
   id          String          @id @default(cuid())
   legalName   String
   tradeName   String?
-  rfc         String
+  rfc         String?
   taxRegime   String?
   postalCode  String?
   createdById String

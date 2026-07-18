@@ -16,9 +16,12 @@ const authSchema = z.object({
 const companySchema = z.object({
   legalName: z.string().min(2),
   tradeName: z.string().optional(),
-  rfc: z.string().min(12).max(13),
+  rfc: z.string().trim().optional(),
   taxRegime: z.string().optional(),
   postalCode: z.string().optional(),
+}).refine((value) => !value.rfc || (value.rfc.length >= 12 && value.rfc.length <= 13), {
+  message: "RFC invalido",
+  path: ["rfc"],
 });
 
 const transactionSchema = z.object({
@@ -77,7 +80,7 @@ export async function createCompany(formData: FormData) {
   const company = await prisma.company.create({
     data: {
       ...parsed.data,
-      rfc: parsed.data.rfc.toUpperCase(),
+      rfc: parsed.data.rfc ? parsed.data.rfc.toUpperCase() : null,
       createdById: user.id,
       members: { create: { userId: user.id, role: "accountant", status: "active" } },
       categories: {
@@ -130,61 +133,65 @@ export async function importXml(formData: FormData) {
   const company = await prisma.company.findUniqueOrThrow({ where: { id: companyId } });
   const xmlContent = await file.text();
 
+  if (!company.rfc) redirect(`/empresas/${companyId}?error=rfc-requerido-xml`);
+
+  let cfdi;
   try {
-    const cfdi = parseCfdiXml(xmlContent);
-    const companyRfc = company.rfc.toUpperCase();
-    const issuerRfc = cfdi.issuerRfc.toUpperCase();
-    const receiverRfc = cfdi.receiverRfc.toUpperCase();
-    const type = issuerRfc === companyRfc ? "income" : receiverRfc === companyRfc ? "expense" : "expense";
-    const reviewStatus = issuerRfc === companyRfc || receiverRfc === companyRfc ? "unreviewed" : "correction_required";
-    const duplicate = await prisma.fiscalDocument.findUnique({
-      where: { companyId_uuid: { companyId, uuid: cfdi.uuid } },
-    });
-
-    if (duplicate) redirect(`/empresas/${companyId}?error=xml-duplicado`);
-
-    await prisma.transaction.create({
-      data: {
-        companyId,
-        type,
-        source: "xml",
-        date: cfdi.issueDate,
-        description: cfdi.description,
-        counterpartyName: type === "income" ? cfdi.receiverName : cfdi.issuerName,
-        counterpartyRfc: type === "income" ? receiverRfc : issuerRfc,
-        subtotal: cfdi.subtotal,
-        taxAmount: cfdi.taxAmount,
-        withholdingAmount: cfdi.withholdingAmount,
-        total: cfdi.total,
-        currency: cfdi.currency,
-        paymentStatus: type === "income" ? "collected" : "paid",
-        reviewStatus,
-        reviewNote: reviewStatus === "correction_required" ? "El RFC emisor/receptor no coincide con la empresa seleccionada." : null,
-        createdById: user.id,
-        fiscalDocument: {
-          create: {
-            companyId,
-            uuid: cfdi.uuid,
-            folio: cfdi.folio,
-            issuerRfc,
-            issuerName: cfdi.issuerName,
-            receiverRfc,
-            receiverName: cfdi.receiverName,
-            issueDate: cfdi.issueDate,
-            subtotal: cfdi.subtotal,
-            taxAmount: cfdi.taxAmount,
-            total: cfdi.total,
-            currency: cfdi.currency,
-            paymentMethod: cfdi.paymentMethod,
-            paymentForm: cfdi.paymentForm,
-            xmlContent,
-          },
-        },
-      },
-    });
+    cfdi = parseCfdiXml(xmlContent);
   } catch {
     redirect(`/empresas/${companyId}?error=xml-invalido`);
   }
+
+  const companyRfc = company.rfc.toUpperCase();
+  const issuerRfc = cfdi.issuerRfc.toUpperCase();
+  const receiverRfc = cfdi.receiverRfc.toUpperCase();
+  const type = issuerRfc === companyRfc ? "income" : receiverRfc === companyRfc ? "expense" : "expense";
+  const reviewStatus = issuerRfc === companyRfc || receiverRfc === companyRfc ? "unreviewed" : "correction_required";
+  const duplicate = await prisma.fiscalDocument.findUnique({
+    where: { companyId_uuid: { companyId, uuid: cfdi.uuid } },
+  });
+
+  if (duplicate) redirect(`/empresas/${companyId}?error=xml-duplicado`);
+
+  await prisma.transaction.create({
+    data: {
+      companyId,
+      type,
+      source: "xml",
+      date: cfdi.issueDate,
+      description: cfdi.description,
+      counterpartyName: type === "income" ? cfdi.receiverName : cfdi.issuerName,
+      counterpartyRfc: type === "income" ? receiverRfc : issuerRfc,
+      subtotal: cfdi.subtotal,
+      taxAmount: cfdi.taxAmount,
+      withholdingAmount: cfdi.withholdingAmount,
+      total: cfdi.total,
+      currency: cfdi.currency,
+      paymentStatus: type === "income" ? "collected" : "paid",
+      reviewStatus,
+      reviewNote: reviewStatus === "correction_required" ? "El RFC emisor/receptor no coincide con la empresa seleccionada." : null,
+      createdById: user.id,
+      fiscalDocument: {
+        create: {
+          companyId,
+          uuid: cfdi.uuid,
+          folio: cfdi.folio,
+          issuerRfc,
+          issuerName: cfdi.issuerName,
+          receiverRfc,
+          receiverName: cfdi.receiverName,
+          issueDate: cfdi.issueDate,
+          subtotal: cfdi.subtotal,
+          taxAmount: cfdi.taxAmount,
+          total: cfdi.total,
+          currency: cfdi.currency,
+          paymentMethod: cfdi.paymentMethod,
+          paymentForm: cfdi.paymentForm,
+          xmlContent,
+        },
+      },
+    },
+  });
 
   revalidatePath(`/empresas/${companyId}`);
   redirect(`/empresas/${companyId}`);

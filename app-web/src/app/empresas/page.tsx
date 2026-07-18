@@ -4,8 +4,13 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { currency } from "@/lib/format";
 
-export default async function CompaniesPage() {
+const errorMessages: Record<string, string> = {
+  empresa: "No se pudo crear el cliente. Revisa que el nombre tenga al menos 2 caracteres y que el RFC, si lo escribes, tenga 12 o 13 caracteres.",
+};
+
+export default async function CompaniesPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await requireUser();
+  const { error } = await searchParams;
   const memberships = await prisma.companyMember.findMany({
     where: { userId: user.id, status: "active" },
     include: {
@@ -32,6 +37,11 @@ export default async function CompaniesPage() {
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="grid gap-4">
+          {error && errorMessages[error] ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-medium text-amber-800">
+              {errorMessages[error]}
+            </div>
+          ) : null}
           {memberships.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
               Aun no tienes empresas. Crea la primera para comenzar.
@@ -46,7 +56,7 @@ export default async function CompaniesPage() {
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-xl font-semibold">{company.tradeName || company.legalName}</h2>
-                    <p className="mt-1 text-sm text-slate-500">{company.legalName} · RFC {company.rfc}</p>
+                    <p className="mt-1 text-sm text-slate-500">{company.legalName} · RFC {company.rfc || "pendiente"}</p>
                   </div>
                   <div className="rounded-full bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
                     {pendingReview} por revisar
@@ -62,15 +72,18 @@ export default async function CompaniesPage() {
         </div>
 
         <form action={createCompany} className="h-fit rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <h2 className="text-xl font-semibold">Crear empresa</h2>
-          <p className="mt-2 text-sm text-slate-500">Datos fiscales minimos para validar XML.</p>
+          <h2 className="text-xl font-semibold">Crear cliente</h2>
+          <p className="mt-2 text-sm text-slate-500">Solo el nombre es obligatorio. El RFC se puede agregar despues para validar XML.</p>
           <div className="mt-6 grid gap-3">
-            <input className="rounded-xl border border-slate-200 px-4 py-3" name="legalName" placeholder="Razon social" required />
+            <label className="grid gap-1 text-sm font-medium text-slate-700">
+              Nombre o razon social *
+              <input className="rounded-xl border border-slate-200 px-4 py-3 font-normal" name="legalName" placeholder="Ej. Abarrotes San Juan" required />
+            </label>
             <input className="rounded-xl border border-slate-200 px-4 py-3" name="tradeName" placeholder="Nombre comercial" />
-            <input className="rounded-xl border border-slate-200 px-4 py-3 uppercase" name="rfc" placeholder="RFC" required />
+            <input className="rounded-xl border border-slate-200 px-4 py-3 uppercase" name="rfc" placeholder="RFC opcional" />
             <input className="rounded-xl border border-slate-200 px-4 py-3" name="taxRegime" placeholder="Regimen fiscal opcional" />
             <input className="rounded-xl border border-slate-200 px-4 py-3" name="postalCode" placeholder="Codigo postal" />
-            <button className="rounded-xl bg-blue-600 px-4 py-3 font-medium text-white" type="submit">Crear empresa</button>
+            <button className="rounded-xl bg-blue-600 px-4 py-3 font-medium text-white" type="submit">Crear cliente</button>
           </div>
         </form>
       </section>
