@@ -3,9 +3,11 @@ import { createCompany, logout } from "@/app/actions";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { currency } from "@/lib/format";
+import { DeleteCompanyButton } from "@/components/delete-company-button";
 
 const errorMessages: Record<string, string> = {
   empresa: "No se pudo crear el cliente. Revisa que el nombre tenga al menos 2 caracteres y que el RFC, si lo escribes, tenga 12 o 13 caracteres.",
+  "sin-permiso": "No tienes permiso para eliminar este cliente.",
 };
 
 export default async function CompaniesPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -52,21 +54,24 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
             const pendingReview = company.transactions.filter((item) => item.reviewStatus !== "reviewed").length;
 
             return (
-              <Link key={company.id} href={`/empresas/${company.id}`} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-lg">
+              <div key={company.id} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-slate-200 transition hover:-translate-y-0.5 hover:shadow-lg">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
+                  <Link href={`/empresas/${company.id}`} className="block">
                     <h2 className="text-xl font-semibold">{company.tradeName || company.legalName}</h2>
                     <p className="mt-1 text-sm text-slate-500">{company.legalName} · RFC {company.rfc || "pendiente"}</p>
-                  </div>
-                  <div className="rounded-full bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
-                    {pendingReview} por revisar
+                  </Link>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-full bg-amber-50 px-4 py-2 text-sm font-medium text-amber-700">
+                      {pendingReview} por revisar
+                    </div>
+                    <DeleteCompanyButton companyId={company.id} companyName={company.tradeName || company.legalName} />
                   </div>
                 </div>
-                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <Link href={`/empresas/${company.id}`} className="mt-6 grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl bg-emerald-50 p-4 text-emerald-800">Ingresos: {currency(income)}</div>
                   <div className="rounded-2xl bg-rose-50 p-4 text-rose-800">Gastos: {currency(expense)}</div>
-                </div>
-              </Link>
+                </Link>
+              </div>
             );
           })}
         </div>

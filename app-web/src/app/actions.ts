@@ -92,6 +92,24 @@ export async function createCompany(formData: FormData) {
   redirect(`/empresas/${company.id}`);
 }
 
+export async function deleteCompany(formData: FormData) {
+  const user = await requireUser();
+  const companyId = String(formData.get("companyId") ?? "");
+
+  if (!companyId) redirect("/empresas?error=empresa");
+
+  const membership = await prisma.companyMember.findFirst({
+    where: { companyId, userId: user.id, role: "accountant", status: "active" },
+  });
+
+  if (!membership) redirect("/empresas?error=sin-permiso");
+
+  await prisma.company.delete({ where: { id: companyId } });
+
+  revalidatePath("/empresas");
+  redirect("/empresas");
+}
+
 export async function createTransaction(formData: FormData) {
   const parsed = transactionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/empresas?error=movimiento");
