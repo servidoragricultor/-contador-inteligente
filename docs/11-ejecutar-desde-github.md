@@ -44,13 +44,7 @@ app-web
 
 ## Variables necesarias
 
-Para desarrollo local se usa SQLite:
-
-```text
-DATABASE_URL="file:./dev.db"
-```
-
-Para produccion no se recomienda SQLite. Se debe usar PostgreSQL.
+La aplicacion requiere PostgreSQL.
 
 Ejemplo:
 
@@ -66,29 +60,20 @@ Opciones simples:
 - Neon PostgreSQL.
 - Vercel Postgres si esta disponible en la cuenta.
 
-## Ajuste pendiente antes de produccion real
+## Estado actual
 
-La implementacion actual usa SQLite local para avanzar rapido.
+El proyecto ya esta configurado para PostgreSQL en Prisma.
 
-Antes de desplegar produccion real se debe cambiar Prisma a PostgreSQL:
-
-```prisma
-datasource db {
-  provider = "postgresql"
-}
-```
-
-Tambien se debe quitar el adapter local `better-sqlite3` y usar el cliente compatible con PostgreSQL.
+No usa SQLite para la aplicacion.
 
 ## Recomendacion practica
 
 Para probar en internet rapido:
 
 1. Crear base PostgreSQL en Supabase o Neon.
-2. Cambiar Prisma de SQLite a PostgreSQL.
-3. Poner `DATABASE_URL` en Vercel.
-4. Conectar Vercel al repo de GitHub.
-5. Desplegar.
+2. Poner `DATABASE_URL` en Vercel.
+3. Conectar Vercel al repo de GitHub.
+4. Desplegar.
 
 ## Por que no GitHub Pages
 

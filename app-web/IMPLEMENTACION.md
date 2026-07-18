@@ -7,7 +7,7 @@ Primer corte funcional de Etapa 1.
 ## Incluye
 
 - App Next.js con TypeScript y Tailwind CSS.
-- Prisma con SQLite local para desarrollo.
+- Prisma con PostgreSQL.
 - Modelo multiempresa.
 - Usuarios y sesiones propias basicas.
 - Registro/login de contador.
@@ -23,11 +23,18 @@ Primer corte funcional de Etapa 1.
 
 ## Decisiones temporales
 
-- Se usa SQLite local para avanzar rapido en desarrollo.
-- En produccion se debe migrar a PostgreSQL.
+- La app requiere una base PostgreSQL configurada en `DATABASE_URL`.
 - La autenticacion es propia y minima para validar flujo.
 - Better Auth queda recomendado para endurecer auth y organizaciones en una siguiente iteracion.
 - Los XML se guardan por ahora como texto en base de datos; despues deben ir a storage y dejar solo metadata en DB.
+
+## Variables
+
+Crear `app-web/.env` con:
+
+```bash
+DATABASE_URL="postgresql://usuario:password@host:5432/database?schema=public"
+```
 
 ## Comandos
 
