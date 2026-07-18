@@ -49,3 +49,9 @@ Resumen recomendado para Etapa 1:
 - Better Auth.
 - Supabase Storage.
 - Tailwind CSS.
+
+## Ejecutar desde GitHub
+
+GitHub debe usarse como repositorio fuente. Para ejecutar la app en internet se recomienda desplegar desde GitHub hacia Vercel.
+
+Ver instrucciones en `docs/11-ejecutar-desde-github.md`.
