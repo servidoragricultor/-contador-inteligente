@@ -13,6 +13,11 @@ const authSchema = z.object({
   password: z.string().min(6),
 });
 
+const loginSchema = z.object({
+  email: z.string().min(1),
+  password: z.string().min(1),
+});
+
 const companySchema = z.object({
   legalName: z.string().min(2),
   tradeName: z.string().optional(),
@@ -57,7 +62,7 @@ export async function registerAccountant(formData: FormData) {
 }
 
 export async function login(formData: FormData) {
-  const parsed = authSchema.omit({ name: true }).safeParse(Object.fromEntries(formData));
+  const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) redirect("/?error=login");
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });

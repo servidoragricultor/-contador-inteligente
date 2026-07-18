@@ -34,7 +34,7 @@ export default async function Home() {
             <h2 className="text-2xl font-semibold">Entrar</h2>
             <p className="mt-2 text-sm text-slate-500">Accede como contador o cliente.</p>
             <div className="mt-6 grid gap-4">
-              <input className="rounded-xl border border-slate-200 px-4 py-3" name="email" type="email" placeholder="correo@empresa.com" required />
+              <input className="rounded-xl border border-slate-200 px-4 py-3" name="email" type="text" placeholder="correo o usuario" required />
               <input className="rounded-xl border border-slate-200 px-4 py-3" name="password" type="password" placeholder="Contrasena" required />
               <button className="rounded-xl bg-slate-950 px-4 py-3 font-medium text-white" type="submit">Entrar</button>
             </div>
