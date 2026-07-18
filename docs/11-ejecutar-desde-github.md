@@ -42,6 +42,18 @@ app-web
 6. Configurar variables de entorno.
 7. Desplegar.
 
+El proyecto incluye `app-web/vercel.json`. En Vercel se debe configurar el `Root Directory` como:
+
+```text
+app-web
+```
+
+El build ejecuta migraciones antes de compilar:
+
+```text
+PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 npx prisma migrate deploy && npm run build
+```
+
 ## Variables necesarias
 
 La aplicacion requiere PostgreSQL.
@@ -51,6 +63,7 @@ Ejemplo:
 ```text
 DATABASE_URL="postgresql://usuario:password@host:5432/database?schema=public"
 DIRECT_URL="postgresql://usuario:password@host:5432/database?schema=public"
+PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK="1"
 ```
 
 En Supabase, copiar ambas variables desde `Connect > ORM > Prisma`.

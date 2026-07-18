@@ -1,0 +1,5 @@
+{
+  "framework": "nextjs",
+  "installCommand": "npm install",
+  "buildCommand": "PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK=1 npx prisma migrate deploy && npm run build"
+}
