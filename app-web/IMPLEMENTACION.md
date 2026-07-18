@@ -34,7 +34,12 @@ Crear `app-web/.env` con:
 
 ```bash
 DATABASE_URL="postgresql://usuario:password@host:5432/database?schema=public"
+DIRECT_URL="postgresql://usuario:password@host:5432/database?schema=public"
 ```
+
+Con Supabase, `DATABASE_URL` debe usar el pooler de transaction-mode para la app y `DIRECT_URL` debe usar la conexion recomendada para migraciones.
+
+El archivo `prisma.config.ts` usa `DIRECT_URL` para comandos de Prisma como `migrate deploy`, mientras que la app usa `DATABASE_URL` desde `src/lib/prisma.ts`.
 
 ## Comandos
 
@@ -48,6 +53,12 @@ Ejecutar migraciones:
 
 ```bash
 npx prisma migrate dev
+```
+
+Con Supabase pooler, si Prisma queda esperando advisory lock, ejecutar:
+
+```powershell
+$env:PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK = "1"; npx prisma migrate deploy
 ```
 
 Iniciar desarrollo:

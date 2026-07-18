@@ -50,6 +50,17 @@ Ejemplo:
 
 ```text
 DATABASE_URL="postgresql://usuario:password@host:5432/database?schema=public"
+DIRECT_URL="postgresql://usuario:password@host:5432/database?schema=public"
+```
+
+En Supabase, copiar ambas variables desde `Connect > ORM > Prisma`.
+
+Importante: si Supabase muestra la contrasena como `[YOUR-PASSWORD]`, los corchetes son solo un placeholder. La contrasena real debe ir sin `[` ni `]`.
+
+Para aplicar migraciones con Prisma y Supabase pooler puede ser necesario desactivar advisory lock durante el comando:
+
+```powershell
+$env:PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK = "1"; npx prisma migrate deploy
 ```
 
 ## Base de datos recomendada
