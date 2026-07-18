@@ -1,0 +1,151 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String          @id @default(cuid())
+  name         String
+  email        String          @unique
+  passwordHash String
+  globalRole   String          @default("accountant")
+  sessions     Session[]
+  memberships  CompanyMember[]
+  transactions Transaction[]   @relation("TransactionCreator")
+  companies    Company[]       @relation("CompanyCreator")
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model Company {
+  id          String          @id @default(cuid())
+  legalName   String
+  tradeName   String?
+  rfc         String
+  taxRegime   String?
+  postalCode  String?
+  createdById String
+  createdBy   User            @relation("CompanyCreator", fields: [createdById], references: [id])
+  members     CompanyMember[]
+  categories  Category[]
+  transactions Transaction[]
+  fiscalDocuments FiscalDocument[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([createdById])
+  @@index([rfc])
+}
+
+model CompanyMember {
+  id        String   @id @default(cuid())
+  companyId String
+  userId    String
+  role      String
+  status    String   @default("active")
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([companyId, userId])
+  @@index([userId])
+}
+
+model Category {
+  id        String        @id @default(cuid())
+  companyId String?
+  company   Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String
+  type      String        @default("both")
+  isDefault Boolean       @default(false)
+  transactions Transaction[]
+  createdAt DateTime      @default(now())
+}
+
+model Transaction {
+  id                String          @id @default(cuid())
+  companyId         String
+  company           Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type              String
+  source            String          @default("manual")
+  date              DateTime
+  description       String
+  counterpartyName  String?
+  counterpartyRfc   String?
+  categoryId        String?
+  category          Category?       @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  subtotal          Float           @default(0)
+  taxAmount         Float           @default(0)
+  withholdingAmount Float           @default(0)
+  total             Float
+  currency          String          @default("MXN")
+  paymentStatus     String
+  reviewStatus      String          @default("unreviewed")
+  reviewNote        String?
+  createdById       String
+  createdBy         User            @relation("TransactionCreator", fields: [createdById], references: [id])
+  fiscalDocument    FiscalDocument?
+  attachments       Attachment[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([companyId, type])
+  @@index([companyId, reviewStatus])
+  @@index([date])
+}
+
+model FiscalDocument {
+  id            String       @id @default(cuid())
+  companyId     String
+  company       Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  transactionId String       @unique
+  transaction   Transaction  @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  uuid          String
+  folio         String?
+  issuerRfc     String
+  issuerName    String?
+  receiverRfc   String
+  receiverName  String?
+  issueDate     DateTime
+  subtotal      Float        @default(0)
+  taxAmount     Float        @default(0)
+  total         Float
+  currency      String       @default("MXN")
+  paymentMethod String?
+  paymentForm   String?
+  xmlContent    String
+  createdAt     DateTime     @default(now())
+
+  @@unique([companyId, uuid])
+  @@index([companyId])
+}
+
+model Attachment {
+  id            String       @id @default(cuid())
+  companyId     String
+  transactionId String?
+  transaction   Transaction? @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  fileName      String
+  mimeType      String
+  size          Int
+  storagePath   String
+  createdAt     DateTime     @default(now())
+}
