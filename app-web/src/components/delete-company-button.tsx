@@ -18,7 +18,7 @@ export function DeleteCompanyButton({ companyId, companyName }: { companyId: str
     >
       <input type="hidden" name="companyId" value={companyId} />
       <button
-        className="rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100"
+        className="calm-button-danger px-3 py-1.5 text-xs"
         type="submit"
       >
         Eliminar

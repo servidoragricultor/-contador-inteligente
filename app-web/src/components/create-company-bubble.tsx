@@ -1,6 +1,6 @@
 "use client";
 
-import { DragEvent, useRef, useState } from "react";
+import { DragEvent, useEffect, useRef, useState } from "react";
 import { createCompany } from "@/app/actions";
 
 export function CreateCompanyBubble() {
@@ -8,6 +8,20 @@ export function CreateCompanyBubble() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
 
   function handleDrop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
@@ -30,7 +44,7 @@ export function CreateCompanyBubble() {
   return (
     <div className="relative">
       <button
-        className="rounded-full bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:-translate-y-0.5 hover:bg-blue-700"
+        className="calm-button-primary w-full"
         onClick={() => setIsOpen((value) => !value)}
         type="button"
       >
@@ -38,31 +52,32 @@ export function CreateCompanyBubble() {
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-14 z-20 w-[min(92vw,430px)] rounded-[2rem] bg-white p-6 shadow-2xl ring-1 ring-slate-200">
-          <div className="flex items-start justify-between gap-4">
+        <div className="calm-modal-backdrop" onClick={() => setIsOpen(false)}>
+          <div className="calm-modal w-[min(92vw,430px)]" onClick={(event) => event.stopPropagation()}>
+            <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">Area del contador</p>
-              <h2 className="mt-2 text-2xl font-semibold">Registrar cliente</h2>
-              <p className="mt-1 text-sm text-slate-500">Solo el nombre es obligatorio. Puedes adjuntar su constancia fiscal en PDF.</p>
+              <p className="calm-eyebrow">Area del contador</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Registrar cliente</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Solo el nombre es obligatorio. Puedes adjuntar su constancia fiscal en PDF.</p>
             </div>
-            <button className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600" onClick={() => setIsOpen(false)} type="button">
-              Cerrar
+            <button aria-label="Cerrar" className="calm-icon-button shrink-0" onClick={() => setIsOpen(false)} type="button">
+              ×
             </button>
           </div>
 
           <form action={createCompany} className="mt-6 grid gap-3">
             <label className="grid gap-1 text-sm font-medium text-slate-700">
               Nombre o razon social *
-              <input className="rounded-xl border border-slate-200 px-4 py-3 font-normal" name="legalName" placeholder="Ej. Abarrotes San Juan" required />
+              <input className="calm-input font-normal" name="legalName" placeholder="Ej. Abarrotes San Juan" required />
             </label>
-            <input className="rounded-xl border border-slate-200 px-4 py-3" name="tradeName" placeholder="Nombre comercial" />
-            <input className="rounded-xl border border-slate-200 px-4 py-3 uppercase" name="rfc" placeholder="RFC opcional" />
-            <input className="rounded-xl border border-slate-200 px-4 py-3" name="taxRegime" placeholder="Regimen fiscal opcional" />
-            <input className="rounded-xl border border-slate-200 px-4 py-3" name="postalCode" placeholder="Codigo postal" />
+            <input className="calm-input" name="tradeName" placeholder="Nombre comercial" />
+            <input className="calm-input uppercase" name="rfc" placeholder="RFC opcional" />
+            <input className="calm-input" name="taxRegime" placeholder="Regimen fiscal opcional" />
+            <input className="calm-input" name="postalCode" placeholder="Codigo postal" />
 
             <label
               className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-4 py-7 text-center transition ${
-                isDragging ? "border-blue-500 bg-blue-100" : "border-blue-300 bg-blue-50 hover:bg-blue-100"
+                isDragging ? "border-slate-500 bg-slate-100" : "border-slate-300 bg-slate-50 hover:bg-slate-100"
               }`}
               onDragLeave={() => setIsDragging(false)}
               onDragOver={(event) => {
@@ -71,8 +86,8 @@ export function CreateCompanyBubble() {
               }}
               onDrop={handleDrop}
             >
-              <span className="text-sm font-semibold text-blue-800">Arrastra aqui la constancia fiscal PDF</span>
-              <span className="mt-1 text-xs text-blue-600">o haz clic para seleccionarla</span>
+              <span className="text-sm font-semibold text-slate-800">Arrastra aqui la constancia fiscal PDF</span>
+              <span className="mt-1 text-xs text-slate-500">o haz clic para seleccionarla</span>
               <span className="mt-3 max-w-full truncate text-xs font-medium text-slate-500">{fileName || "PDF opcional"}</span>
               <input
                 accept="application/pdf,.pdf"
@@ -84,10 +99,11 @@ export function CreateCompanyBubble() {
               />
             </label>
 
-            <button className="mt-2 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700" type="submit">
+            <button className="calm-button-primary mt-2 w-full" type="submit">
               Guardar cliente
             </button>
           </form>
+          </div>
         </div>
       ) : null}
     </div>

@@ -10,44 +10,46 @@ export default async function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,#dbeafe,transparent_34%),linear-gradient(135deg,#f8fafc,#eef2ff)] px-6 py-10">
-      <section className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="flex flex-col justify-center rounded-3xl bg-slate-950 p-10 text-white shadow-2xl">
-          <p className="mb-4 w-fit rounded-full bg-blue-500/20 px-4 py-2 text-sm text-blue-100">
-            Etapa 1: ingresos, gastos y XML
-          </p>
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-6xl">
-            Registros simples para clientes. Revision clara para contadores.
+    <main className="calm-page min-h-screen px-4 py-6 sm:px-6 sm:py-10">
+      <section className="mx-auto grid min-h-[calc(100vh-5rem)] max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="max-w-2xl">
+          <div className="calm-badge bg-white calm-muted ring-1 ring-slate-200">
+            Contador Inteligente
+          </div>
+          <h1 className="mt-6 text-4xl font-bold tracking-[-0.055em] text-slate-950 sm:text-7xl">
+            Contabilidad clara, sin ruido.
           </h1>
-          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">
-            El cliente captura ingresos y gastos o sube XML CFDI. El contador revisa, corrige y valida sin perseguir comprobantes desordenados.
+          <p className="calm-muted mt-6 max-w-xl text-lg leading-8">
+            Un espacio tranquilo para que clientes capturen ingresos, gastos y XML; y el contador revise solo lo que importa.
           </p>
-          <div className="mt-8 grid gap-3 text-sm text-slate-200 sm:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Multiempresa</div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">Roles simples</div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">XML automatico</div>
+          <div className="calm-muted mt-10 grid max-w-xl gap-3 text-sm sm:grid-cols-3">
+            <div className="calm-card p-4">Multiempresa</div>
+            <div className="calm-card p-4">Captura minima</div>
+            <div className="calm-card p-4">Revision clara</div>
           </div>
         </div>
 
-        <div className="grid gap-6">
-          <form action={login} className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-200">
-            <h2 className="text-2xl font-semibold">Entrar</h2>
-            <p className="mt-2 text-sm text-slate-500">Accede como contador o cliente.</p>
+        <div className="grid gap-4">
+          <form action={login} className="calm-panel">
+            <p className="calm-eyebrow">Acceso</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Entrar</h2>
+            <p className="calm-muted mt-2 text-sm leading-6">Accede como contador o cliente. La pantalla siguiente se adapta a tu rol.</p>
             <div className="mt-6 grid gap-4">
-              <input className="rounded-xl border border-slate-200 px-4 py-3" name="email" type="text" placeholder="correo o usuario" required />
-              <input className="rounded-xl border border-slate-200 px-4 py-3" name="password" type="password" placeholder="Contrasena" required />
-              <button className="rounded-xl bg-slate-950 px-4 py-3 font-medium text-white" type="submit">Entrar</button>
+              <input className="calm-input" name="email" type="text" placeholder="correo o usuario" required />
+              <input className="calm-input" name="password" type="password" placeholder="Contrasena" required />
+              <button className="calm-button-primary w-full" type="submit">Entrar</button>
             </div>
           </form>
 
-          <form action={registerAccountant} className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-slate-200">
-            <h2 className="text-2xl font-semibold">Crear cuenta contador</h2>
-            <p className="mt-2 text-sm text-slate-500">Base inicial para administrar empresas.</p>
+          <form action={registerAccountant} className="calm-card p-6">
+            <p className="calm-eyebrow">Nuevo despacho</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em]">Crear cuenta contador</h2>
+            <p className="calm-muted mt-2 text-sm leading-6">Crea tu espacio para administrar clientes.</p>
             <div className="mt-6 grid gap-4">
-              <input className="rounded-xl border border-slate-200 px-4 py-3" name="name" placeholder="Nombre" required />
-              <input className="rounded-xl border border-slate-200 px-4 py-3" name="email" type="email" placeholder="correo@despacho.com" required />
-              <input className="rounded-xl border border-slate-200 px-4 py-3" name="password" type="password" placeholder="Minimo 6 caracteres" required />
-              <button className="rounded-xl bg-blue-600 px-4 py-3 font-medium text-white" type="submit">Crear cuenta</button>
+              <input className="calm-input" name="name" placeholder="Nombre" required />
+              <input className="calm-input" name="email" type="email" placeholder="correo@despacho.com" required />
+              <input className="calm-input" name="password" type="password" placeholder="Minimo 6 caracteres" required />
+              <button className="calm-button-secondary w-full" type="submit">Crear cuenta</button>
             </div>
           </form>
         </div>
