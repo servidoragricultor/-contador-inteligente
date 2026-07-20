@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 export function ClientFiltersBubble({
   cardViewHref,
@@ -19,7 +19,7 @@ export function ClientFiltersBubble({
   vista: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeFilters = Number(filtro !== "todos") + Number(orden !== "recientes");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -35,31 +35,19 @@ export function ClientFiltersBubble({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isOpen]);
 
-  function cancelClose() {
-    if (closeTimerRef.current) {
-      clearTimeout(closeTimerRef.current);
-      closeTimerRef.current = null;
-    }
-  }
-
-  function scheduleClose() {
-    cancelClose();
-    closeTimerRef.current = setTimeout(() => setIsOpen(false), 220);
-  }
-
   return (
-    <div className="relative lg:w-[220px]" onMouseEnter={cancelClose} onMouseLeave={scheduleClose}>
+    <div className="relative lg:w-[220px]">
       <button
         aria-expanded={isOpen}
         className="calm-button-secondary flex w-full items-center justify-between"
         onClick={() => setIsOpen((value) => !value)}
         type="button"
       >
-        <span>Filtros</span>
+        <span>{activeFilters > 0 ? `Filtros (${activeFilters})` : "Filtros"}</span>
         <span aria-hidden="true">⌄</span>
       </button>
       {isOpen ? (
-        <div className="calm-modal absolute right-0 top-12 z-20 w-[min(92vw,360px)] max-w-none" onMouseEnter={cancelClose}>
+        <div className="calm-modal absolute right-0 top-12 z-20 w-[min(92vw,360px)] max-w-none">
           <form className="grid gap-4">
             <input type="hidden" name="vista" value={vista} />
             <input type="hidden" name="q" value={q} />
@@ -88,6 +76,7 @@ export function ClientFiltersBubble({
               </select>
             </label>
             <button className="calm-button-primary" type="submit">Aplicar filtros</button>
+            {activeFilters > 0 ? <Link className="calm-button-secondary" href={`/empresas?q=${encodeURIComponent(q)}&vista=${vista}`}>Restablecer</Link> : null}
           </form>
         </div>
       ) : null}

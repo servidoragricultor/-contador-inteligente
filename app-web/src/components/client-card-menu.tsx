@@ -1,24 +1,29 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { deleteCompany } from "@/app/actions";
+import { useActionState, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { createClientInvitation, deleteCompany } from "@/app/actions";
+import { InvitationLink } from "@/components/invitation-link";
 
-export function ClientCardMenu({ companyId, companyName }: { companyId: string; companyName: string }) {
+export function ClientCardMenu({ companyId, companyName, hasAccess }: { companyId: string; companyName: string; hasAccess: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAccessOpen, setIsAccessOpen] = useState(false);
+  const [invitationState, invitationAction, isCreatingInvitation] = useActionState(createClientInvitation, null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen && !isAccessOpen) return;
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setIsOpen(false);
+        setIsAccessOpen(false);
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen]);
+  }, [isOpen, isAccessOpen]);
 
   return (
     <div className="relative">
@@ -32,12 +37,20 @@ export function ClientCardMenu({ companyId, companyName }: { companyId: string; 
         ⋯
       </button>
       {isOpen ? <div className="absolute right-0 top-11 z-20 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
-        <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50" type="button">
-          Editar
-        </button>
-        <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-slate-600 transition hover:bg-slate-50" type="button">
-          Archivar
-        </button>
+        {hasAccess ? (
+          <span className="block px-3 py-2 text-sm font-medium text-emerald-700">Acceso activo</span>
+        ) : (
+          <button
+            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            onClick={() => {
+              setIsOpen(false);
+              setIsAccessOpen(true);
+            }}
+            type="button"
+          >
+            Dar acceso
+          </button>
+        )}
         <form
           action={deleteCompany}
           onSubmit={(event) => {
@@ -56,6 +69,38 @@ export function ClientCardMenu({ companyId, companyName }: { companyId: string; 
           </button>
         </form>
       </div> : null}
+      {isAccessOpen ? createPortal(
+        <div className="calm-modal-backdrop" onClick={() => setIsAccessOpen(false)}>
+          <form
+            action={invitationAction}
+            aria-labelledby="client-access-title"
+            aria-modal="true"
+            className="calm-modal w-[min(92vw,430px)]"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="calm-eyebrow">Portal del cliente</p>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]" id="client-access-title">Generar invitacion</h2>
+                <p className="calm-muted mt-1 text-sm leading-6">Crearemos un enlace seguro para que {companyName} registre su correo y elija su contrasena.</p>
+              </div>
+              <button aria-label="Cerrar" className="calm-icon-button shrink-0" onClick={() => setIsAccessOpen(false)} type="button">×</button>
+            </div>
+
+            <input name="companyId" type="hidden" value={companyId} />
+            <div className="mt-6 grid gap-4">
+              {invitationState?.token ? <InvitationLink token={invitationState.token} /> : null}
+              {invitationState?.error ? <div className="calm-alert-error" role="alert">{invitationState.error}</div> : null}
+              <div className="calm-soft-box text-sm leading-6 text-slate-700">El enlace funcionara una sola vez y vencera en 7 dias. Generar uno nuevo invalidara el anterior.</div>
+              <button className="calm-button-primary w-full" disabled={isCreatingInvitation} type="submit">
+                {isCreatingInvitation ? "Generando..." : invitationState?.token ? "Generar otro enlace" : "Generar enlace"}
+              </button>
+            </div>
+          </form>
+        </div>,
+        document.body,
+      ) : null}
     </div>
   );
 }

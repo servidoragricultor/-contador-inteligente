@@ -1,11 +1,15 @@
 "use server";
 
+import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createSession, destroySession, hashPassword, requireCompanyAccess, requireUser, verifyPassword } from "@/lib/auth";
 import { parseCfdiXml } from "@/lib/cfdi";
+import { inferCfdiPaymentStatus, inferExpenseCategory } from "@/lib/cfdi-classification";
+import { parseFiscalConstancy, type FiscalProfile } from "@/lib/fiscal-constancy";
+import { validateCfdiAgainstCompany } from "@/lib/fiscal-validation";
 
 const authSchema = z.object({
   name: z.string().min(2).optional(),
@@ -18,16 +22,33 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
-const companySchema = z.object({
-  legalName: z.string().min(2),
+const companyInputSchema = z.object({
+  legalName: z.string().trim().optional(),
   tradeName: z.string().optional(),
   rfc: z.string().trim().optional(),
   taxRegime: z.string().optional(),
   postalCode: z.string().optional(),
-}).refine((value) => !value.rfc || (value.rfc.length >= 12 && value.rfc.length <= 13), {
-  message: "RFC invalido",
-  path: ["rfc"],
 });
+
+const companySchema = z.object({
+  legalName: z.string().trim().min(2),
+  tradeName: z.string().trim().optional(),
+  rfc: z.string().trim().regex(/^[A-Z&Ñ]{3,4}\d{6}[A-Z0-9]{3}$/).optional(),
+  taxRegime: z.string().trim().regex(/^\d{3}(,\d{3})*$/).optional(),
+  postalCode: z.string().trim().regex(/^\d{5}$/).optional(),
+});
+
+const clientInvitationSchema = z.object({
+  companyId: z.string().min(1),
+});
+
+const acceptClientInvitationSchema = z.object({
+  token: z.string().regex(/^[a-f0-9]{64}$/),
+  name: z.string().trim().min(2),
+  email: z.string().trim().email(),
+  password: z.string().min(6).max(100),
+  passwordConfirmation: z.string(),
+}).refine((data) => data.password === data.passwordConfirmation, { path: ["passwordConfirmation"] });
 
 const transactionSchema = z.object({
   companyId: z.string().min(1),
@@ -85,13 +106,49 @@ export async function logout() {
 
 export async function createCompany(formData: FormData) {
   const user = await requireUser();
-  const parsed = companySchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/empresas?error=empresa");
+  const input = companyInputSchema.safeParse(Object.fromEntries(formData));
+  if (!input.success) redirect("/empresas?error=empresa");
+
+  const fiscalConstancy = formData.get("fiscalConstancy");
+  let fiscalProfile: FiscalProfile | undefined;
+
+  if (fiscalConstancy instanceof File && fiscalConstancy.size > 0) {
+    try {
+      fiscalProfile = await parseFiscalConstancy(fiscalConstancy);
+    } catch {
+      redirect("/empresas?error=constancia-invalida");
+    }
+  }
+
+  const companyData = {
+    legalName: fiscalProfile?.legalName || input.data.legalName,
+    postalCode: fiscalProfile?.postalCode || input.data.postalCode || undefined,
+    rfc: fiscalProfile?.rfc || input.data.rfc?.toUpperCase() || undefined,
+    taxRegime: fiscalProfile?.taxRegimes.join(",") || input.data.taxRegime || undefined,
+    tradeName: input.data.tradeName || fiscalProfile?.tradeName || undefined,
+  };
+
+  if (fiscalProfile && (!companyData.legalName || !companyData.rfc || !companyData.taxRegime || !companyData.postalCode)) {
+    redirect("/empresas?error=constancia-incompleta");
+  }
+  if (fiscalProfile?.fiscalStatus && fiscalProfile.fiscalStatus !== "ACTIVO") {
+    redirect("/empresas?error=constancia-inactiva");
+  }
+
+  const parsed = companySchema.safeParse(companyData);
+  if (!parsed.success) redirect(`/empresas?error=${fiscalProfile ? "constancia-incompleta" : "empresa"}`);
+
+  if (parsed.data.rfc) {
+    const duplicate = await prisma.company.findFirst({
+      where: { rfc: parsed.data.rfc, members: { some: { userId: user.id, status: "active" } } },
+    });
+    if (duplicate) redirect("/empresas?error=rfc-duplicado");
+  }
 
   const company = await prisma.company.create({
     data: {
       ...parsed.data,
-      rfc: parsed.data.rfc ? parsed.data.rfc.toUpperCase() : null,
+      rfc: parsed.data.rfc ?? null,
       createdById: user.id,
       members: { create: { userId: user.id, role: "accountant", status: "active" } },
       categories: {
@@ -119,6 +176,94 @@ export async function deleteCompany(formData: FormData) {
 
   revalidatePath("/empresas");
   redirect("/empresas");
+}
+
+export async function createClientInvitation(
+  _previousState: { error: string | null; token: string | null } | null,
+  formData: FormData,
+) {
+  const parsed = clientInvitationSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { error: "No pudimos identificar al cliente.", token: null };
+
+  const { membership } = await requireCompanyAccess(parsed.data.companyId);
+  if (membership.role !== "accountant") return { error: "No tienes permiso para generar esta invitacion.", token: null };
+
+  const existingAccess = await prisma.companyMember.findFirst({
+    where: { companyId: parsed.data.companyId, role: "client", status: "active" },
+  });
+  if (existingAccess) return { error: "Este cliente ya tiene un acceso activo.", token: null };
+
+  const token = randomBytes(32).toString("hex");
+  const tokenHash = hashInvitationToken(token);
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  await prisma.$transaction([
+    prisma.clientInvitation.deleteMany({
+      where: { companyId: parsed.data.companyId, usedAt: null },
+    }),
+    prisma.clientInvitation.create({
+      data: {
+        companyId: parsed.data.companyId,
+        tokenHash,
+        expiresAt,
+      },
+    }),
+  ]);
+
+  revalidatePath("/empresas");
+  return { error: null, token };
+}
+
+export async function acceptClientInvitation(formData: FormData) {
+  const parsed = acceptClientInvitationSchema.safeParse(Object.fromEntries(formData));
+  const token = String(formData.get("token") ?? "");
+  const invitationPath = `/invitacion/${encodeURIComponent(token)}`;
+  if (!parsed.success) redirect(`${invitationPath}?error=datos`);
+
+  const invitation = await prisma.clientInvitation.findUnique({
+    where: { tokenHash: hashInvitationToken(parsed.data.token) },
+  });
+  if (!invitation || invitation.usedAt || invitation.expiresAt <= new Date()) {
+    redirect(`${invitationPath}?error=invalida`);
+  }
+
+  const email = parsed.data.email.toLowerCase();
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) redirect(`${invitationPath}?error=correo`);
+
+  const existingAccess = await prisma.companyMember.findFirst({
+    where: { companyId: invitation.companyId, role: "client", status: "active" },
+  });
+  if (existingAccess) redirect(`${invitationPath}?error=utilizada`);
+
+  const passwordHash = await hashPassword(parsed.data.password);
+  const createdUser = await prisma.$transaction(async (transaction) => {
+    const claimed = await transaction.clientInvitation.updateMany({
+      where: { id: invitation.id, usedAt: null, expiresAt: { gt: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count !== 1) throw new Error("INVITATION_ALREADY_USED");
+
+    return transaction.user.create({
+      data: {
+        name: parsed.data.name,
+        email,
+        passwordHash,
+        globalRole: "client",
+        memberships: {
+          create: {
+            companyId: invitation.companyId,
+            role: "client",
+            status: "active",
+          },
+        },
+      },
+    });
+  }).catch(() => null);
+
+  if (!createdUser) redirect(`${invitationPath}?error=utilizada`);
+  await createSession(createdUser.id);
+  redirect(`/empresas/${invitation.companyId}`);
 }
 
 export async function createTransaction(formData: FormData) {
@@ -159,6 +304,7 @@ export async function updateTransaction(formData: FormData) {
   const { user, membership } = await requireCompanyAccess(parsed.data.companyId);
   const transaction = await prisma.transaction.findUnique({
     where: { id: parsed.data.transactionId, companyId: parsed.data.companyId },
+    include: { fiscalDocument: true },
   });
 
   if (!transaction) redirect(`/empresas/${parsed.data.companyId}`);
@@ -169,6 +315,17 @@ export async function updateTransaction(formData: FormData) {
   const category = parsed.data.categoryName
     ? await prisma.category.findFirst({ where: { companyId: parsed.data.companyId, name: parsed.data.categoryName } })
     : null;
+  let nextReviewStatus = membership.role === "client" ? "unreviewed" : (parsed.data.reviewStatus ?? transaction.reviewStatus);
+  let nextReviewNote = membership.role === "accountant" ? (parsed.data.reviewNote?.trim() || null) : transaction.reviewNote;
+
+  if (membership.role === "accountant" && nextReviewStatus === "reviewed" && transaction.fiscalDocument) {
+    const company = await prisma.company.findUniqueOrThrow({ where: { id: parsed.data.companyId } });
+    const validationIssues = validateCfdiAgainstCompany(company, parseCfdiXml(transaction.fiscalDocument.xmlContent));
+    if (validationIssues.length > 0) {
+      nextReviewStatus = "correction_required";
+      nextReviewNote = validationIssues.join(" ");
+    }
+  }
 
   await prisma.transaction.update({
     where: { id: parsed.data.transactionId, companyId: parsed.data.companyId },
@@ -181,8 +338,8 @@ export async function updateTransaction(formData: FormData) {
       total: parsed.data.total,
       subtotal: parsed.data.total,
       paymentStatus: parsed.data.paymentStatus,
-      reviewStatus: membership.role === "client" ? "unreviewed" : (parsed.data.reviewStatus ?? transaction.reviewStatus),
-      reviewNote: membership.role === "accountant" ? (parsed.data.reviewNote?.trim() || null) : transaction.reviewNote,
+      reviewStatus: nextReviewStatus,
+      reviewNote: nextReviewNote,
     },
   });
 
@@ -217,7 +374,10 @@ export async function importXml(formData: FormData) {
 
   if (files.length === 0) redirect(`/empresas/${companyId}?error=xml-vacio`);
 
-  const company = await prisma.company.findUniqueOrThrow({ where: { id: companyId } });
+  const company = await prisma.company.findUniqueOrThrow({
+    where: { id: companyId },
+    include: { categories: true },
+  });
 
   if (!company.rfc) redirect(`/empresas/${companyId}?error=rfc-requerido-xml`);
 
@@ -239,8 +399,13 @@ export async function importXml(formData: FormData) {
 
     const issuerRfc = cfdi.issuerRfc.toUpperCase();
     const receiverRfc = cfdi.receiverRfc.toUpperCase();
-    const type = issuerRfc === companyRfc ? "income" : receiverRfc === companyRfc ? "expense" : "expense";
-    const reviewStatus = issuerRfc === companyRfc || receiverRfc === companyRfc ? "unreviewed" : "correction_required";
+    const type = issuerRfc === companyRfc ? "income" : "expense";
+    const validationIssues = validateCfdiAgainstCompany(company, cfdi);
+    const reviewStatus = validationIssues.length > 0 ? "correction_required" : "unreviewed";
+    const paymentStatus = inferCfdiPaymentStatus(cfdi.paymentMethod, cfdi.paymentForm, type);
+    const suggestedCategory = type === "expense"
+      ? inferExpenseCategory(`${cfdi.description} ${cfdi.issuerName ?? ""}`, company.categories)
+      : null;
     const duplicate = await prisma.fiscalDocument.findUnique({
       where: { companyId_uuid: { companyId, uuid: cfdi.uuid } },
     });
@@ -259,14 +424,15 @@ export async function importXml(formData: FormData) {
         description: cfdi.description,
         counterpartyName: type === "income" ? cfdi.receiverName : cfdi.issuerName,
         counterpartyRfc: type === "income" ? receiverRfc : issuerRfc,
+        categoryId: suggestedCategory?.id,
         subtotal: cfdi.subtotal,
         taxAmount: cfdi.taxAmount,
         withholdingAmount: cfdi.withholdingAmount,
         total: cfdi.total,
         currency: cfdi.currency,
-        paymentStatus: type === "income" ? "collected" : "paid",
+        paymentStatus,
         reviewStatus,
-        reviewNote: reviewStatus === "correction_required" ? "El RFC emisor/receptor no coincide con la empresa seleccionada." : null,
+        reviewNote: validationIssues.length > 0 ? validationIssues.join(" ") : null,
         createdById: user.id,
         fiscalDocument: {
           create: {
@@ -306,12 +472,34 @@ export async function updateReviewStatus(formData: FormData) {
   const reviewStatus = String(formData.get("reviewStatus") ?? "unreviewed");
   const reviewNote = String(formData.get("reviewNote") ?? "") || null;
 
-  await requireCompanyAccess(companyId);
+  const { membership } = await requireCompanyAccess(companyId);
+  if (membership.role !== "accountant") redirect(`/empresas/${companyId}`);
+
+  const transaction = await prisma.transaction.findUnique({
+    where: { id: transactionId, companyId },
+    include: { fiscalDocument: true },
+  });
+  if (!transaction) redirect(`/empresas/${companyId}`);
+
+  let nextReviewStatus = reviewStatus;
+  let nextReviewNote = reviewNote;
+  if (reviewStatus === "reviewed" && transaction.fiscalDocument) {
+    const company = await prisma.company.findUniqueOrThrow({ where: { id: companyId } });
+    const validationIssues = validateCfdiAgainstCompany(company, parseCfdiXml(transaction.fiscalDocument.xmlContent));
+    if (validationIssues.length > 0) {
+      nextReviewStatus = "correction_required";
+      nextReviewNote = validationIssues.join(" ");
+    }
+  }
 
   await prisma.transaction.update({
     where: { id: transactionId, companyId },
-    data: { reviewStatus, reviewNote },
+    data: { reviewStatus: nextReviewStatus, reviewNote: nextReviewNote },
   });
 
   revalidatePath(`/empresas/${companyId}`);
+}
+
+function hashInvitationToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
 }

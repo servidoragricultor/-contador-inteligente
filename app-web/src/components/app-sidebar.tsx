@@ -9,41 +9,15 @@ type NavItem = {
   label: string;
   href: string;
   icon: IconName;
-  comingSoon?: boolean;
 };
 
 type IconName = "home" | "users" | "table" | "file" | "bank" | "check" | "clock" | "chart" | "report" | "settings" | "help" | "logout";
 
 const sections: { title: string; items: NavItem[] }[] = [
   {
-    title: "Principal",
+    title: "Despacho",
     items: [
-      { label: "Home", href: "/home", icon: "home", comingSoon: true },
       { label: "Clientes", href: "/empresas", icon: "users" },
-      { label: "Tabla general", href: "/tabla", icon: "table", comingSoon: true },
-    ],
-  },
-  {
-    title: "Operaciones",
-    items: [
-      { label: "Facturas", href: "/facturas", icon: "file", comingSoon: true },
-      { label: "Bancos", href: "/bancos", icon: "bank", comingSoon: true },
-      { label: "Conciliaciones", href: "/conciliaciones", icon: "check", comingSoon: true },
-      { label: "Pendientes", href: "/pendientes", icon: "clock", comingSoon: true },
-    ],
-  },
-  {
-    title: "Analisis",
-    items: [
-      { label: "Dashboard", href: "/dashboard", icon: "chart", comingSoon: true },
-      { label: "Reportes", href: "/reportes", icon: "report", comingSoon: true },
-    ],
-  },
-  {
-    title: "Sistema",
-    items: [
-      { label: "Configuracion", href: "/configuracion", icon: "settings", comingSoon: true },
-      { label: "Ayuda", href: "/ayuda", icon: "help", comingSoon: true },
     ],
   },
 ];
@@ -78,6 +52,7 @@ export function AppSidebar({
         { label: "Todos los registros", href: `${clientBase}?vista=movimientos`, icon: "table" as IconName },
         { label: "Ingresos", href: `${clientBase}?vista=movimientos&tipo=income`, icon: "chart" as IconName },
         { label: "Gastos", href: `${clientBase}?vista=movimientos&tipo=expense`, icon: "report" as IconName },
+        { label: "Gastos a credito", href: `${clientBase}?vista=movimientos&tipo=credit`, icon: "clock" as IconName },
       ],
     },
   ] : sections;
@@ -125,30 +100,30 @@ export function AppSidebar({
             <div className="grid gap-1">
               {section.items.map((item) => {
                 const [itemPath, itemQuery = ""] = item.href.split("?");
-                const currentQuery = searchParams.toString();
                 const isClientHome = variant === "client" && item.href === clientBase;
+                const expectedQuery = new URLSearchParams(itemQuery);
                 const isActive = variant === "client"
                   ? pathname === itemPath && (isClientHome
                     ? !searchParams.has("captura") && !searchParams.has("vista")
-                    : currentQuery === itemQuery)
+                    : [...expectedQuery.entries()].every(([key, value]) => searchParams.get(key) === value)
+                      && (expectedQuery.has("captura") ? searchParams.has("captura") : true)
+                      && (expectedQuery.has("vista") ? searchParams.has("vista") : true)
+                      && (expectedQuery.has("tipo") ? true : !searchParams.has("tipo")))
                   : item.href === "/empresas" ? pathname?.startsWith("/empresas") : pathname === item.href;
-                const tooltip = item.comingSoon ? `${item.label} - Desactivado temporalmente` : item.label;
 
                 return (
                   <Link
                     aria-current={isActive ? "page" : undefined}
-                    className={`ledger-nav-item ${isActive ? "ledger-nav-item-active" : ""} ${item.comingSoon ? "ledger-nav-item-muted" : ""}`}
-                    data-tooltip={tooltip}
+                    className={`ledger-nav-item ${isActive ? "ledger-nav-item-active" : ""}`}
+                    data-tooltip={item.label}
                     href={item.href}
                     key={item.label}
-                    title={item.comingSoon ? "Desactivado temporalmente" : undefined}
                     onClick={() => setIsMobileOpen(false)}
                   >
                     <span className="ledger-nav-icon" aria-hidden="true"><NavIcon name={item.icon} /></span>
                     {!isCollapsed ? (
                       <span className="min-w-0 flex-1 text-left">
                         <span className="block truncate">{item.label}</span>
-                        {item.comingSoon ? <span className="block truncate text-[11px] font-normal opacity-70">Desactivado temporalmente</span> : null}
                       </span>
                     ) : null}
                   </Link>

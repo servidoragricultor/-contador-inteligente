@@ -8,16 +8,25 @@ import { RegisterTransactionsBubble, RegisterTransactionsPanel } from "@/compone
 import { ClientMovementsTable } from "@/components/client-movements-table";
 import { ClientFinancialHome } from "@/components/client-financial-home";
 import { MovementFiltersBubble } from "@/components/movement-filters-bubble";
+import { parseCfdiXml } from "@/lib/cfdi";
+import { validateCfdiAgainstCompany } from "@/lib/fiscal-validation";
+
+const companyErrorMessages: Record<string, string> = {
+  "rfc-requerido-xml": "Completa el RFC del perfil fiscal antes de importar XML.",
+  "xml-duplicado": "El XML ya estaba registrado y no se importó nuevamente.",
+  "xml-invalido": "No pudimos importar el XML. Verifica que sea un CFDI válido.",
+  "xml-vacio": "Selecciona al menos un archivo XML.",
+};
 
 export default async function CompanyPage({
   params,
   searchParams,
 }: {
   params: Promise<{ companyId: string }>;
-  searchParams: Promise<{ captura?: string; mes?: string; tipo?: string; vista?: string }>;
+  searchParams: Promise<{ captura?: string; error?: string; mes?: string; tipo?: string; vista?: string; xmlImportados?: string; xmlOmitidos?: string }>;
 }) {
   const { companyId } = await params;
-  const { captura, mes, tipo, vista } = await searchParams;
+  const { captura, error, mes, tipo, vista, xmlImportados, xmlOmitidos } = await searchParams;
   const { user, membership } = await requireCompanyAccess(companyId);
 
   const company = await prisma.company.findUniqueOrThrow({
@@ -30,20 +39,43 @@ export default async function CompanyPage({
       },
     },
   });
+  const transactions = company.transactions.map((item) => {
+    if (!item.fiscalDocument) return item;
 
-  const income = company.transactions.filter((item) => item.type === "income").reduce((sum, item) => sum + item.total, 0);
-  const expense = company.transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.total, 0);
+    try {
+      const issues = validateCfdiAgainstCompany(company, parseCfdiXml(item.fiscalDocument.xmlContent));
+      return issues.length > 0
+        ? { ...item, reviewNote: issues.join(" "), reviewStatus: "correction_required" }
+        : item;
+    } catch {
+      return { ...item, reviewNote: "El XML almacenado no se pudo validar.", reviewStatus: "correction_required" };
+    }
+  });
+
+  const income = transactions.filter((item) => item.type === "income").reduce((sum, item) => sum + item.total, 0);
+  const expense = transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.total, 0);
   const grossMargin = income > 0 ? `${(((income - expense) / income) * 100).toFixed(1)}%` : "0.0%";
-  const pendingReview = company.transactions.filter((item) => item.reviewStatus === "unreviewed").length;
-  const corrections = company.transactions.filter((item) => item.reviewStatus === "correction_required").length;
-  const movementFilter = tipo === "income" || tipo === "expense" ? tipo : "all";
-  const visibleTransactions = company.transactions.filter((item) => movementFilter === "all" || item.type === movementFilter);
+  const pendingReview = transactions.filter((item) => item.reviewStatus === "unreviewed").length;
+  const corrections = transactions.filter((item) => item.reviewStatus === "correction_required").length;
+  const creditTransactions = transactions.filter(isCreditTransaction);
+  const creditTotal = creditTransactions.reduce((sum, item) => sum + item.total, 0);
+  const movementFilter = tipo === "income" || tipo === "expense" || tipo === "credit" ? tipo : "all";
+  const visibleTransactions = transactions.filter((item) => {
+    if (movementFilter === "credit") return isCreditTransaction(item);
+    return movementFilter === "all" || item.type === movementFilter;
+  });
   const categories = company.categories.map((item) => item.name);
+  const fiscalProfileComplete = Boolean(company.rfc && company.legalName && company.postalCode && company.taxRegime);
+  const importedCount = Number(xmlImportados ?? 0);
+  const omittedCount = Number(xmlOmitidos ?? 0);
 
   if (membership.role === "client") {
     const isMovementsView = vista === "movimientos";
     const captureMode: "income" | "expense" | "xml" | null = captura === "income" || captura === "expense" || captura === "xml" ? captura : null;
-    const clientTransactions = company.transactions.filter((item) => movementFilter === "all" || item.type === movementFilter);
+    const clientTransactions = transactions.filter((item) => {
+      if (movementFilter === "credit") return isCreditTransaction(item);
+      return movementFilter === "all" || item.type === movementFilter;
+    });
     const captureTitles: Record<NonNullable<typeof captureMode>, string> = {
       income: "Registrar ingreso",
       expense: "Registrar gasto",
@@ -51,8 +83,8 @@ export default async function CompanyPage({
     };
     const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(mes ?? "") ? mes! : new Date().toISOString().slice(0, 7);
     const { end, previousEnd, previousStart, start } = getMonthBounds(selectedMonth);
-    const periodTransactions = company.transactions.filter((item) => item.date >= start && item.date < end);
-    const previousTransactions = company.transactions.filter((item) => item.date >= previousStart && item.date < previousEnd);
+    const periodTransactions = transactions.filter((item) => item.date >= start && item.date < end);
+    const previousTransactions = transactions.filter((item) => item.date >= previousStart && item.date < previousEnd);
     const periodIncome = totalByType(periodTransactions, "income");
     const periodExpense = totalByType(periodTransactions, "expense");
     const previousIncome = totalByType(previousTransactions, "income");
@@ -75,9 +107,8 @@ export default async function CompanyPage({
       <div className="ledger-layout">
         <AppSidebar companyId={company.id} variant="client" workspaceName={company.tradeName || company.legalName} />
         <main className="ledger-main max-w-6xl">
-        <header className="border-b border-slate-200 pb-8">
+        <header className="calm-header">
            <div>
-            <p className="calm-eyebrow">Portal del cliente</p>
             <h1 className="calm-title">{company.tradeName || company.legalName}</h1>
             <p className="calm-subtitle">
               {isMovementsView
@@ -89,11 +120,17 @@ export default async function CompanyPage({
           </div>
         </header>
 
+        {error && companyErrorMessages[error] ? <div className="calm-alert-error mt-6" role="alert">{companyErrorMessages[error]}</div> : null}
+        {importedCount > 0 ? (
+          <div className="calm-alert-success mt-6" role="status">
+            {importedCount} {importedCount === 1 ? "XML importado" : "XML importados"}.{omittedCount > 0 ? ` ${omittedCount} omitidos por duplicado o formato inválido.` : ""}
+          </div>
+        ) : null}
+
         {isMovementsView ? (
-          <section className="calm-panel mt-8">
-            <p className="calm-eyebrow">Historial</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Registros enviados</h2>
-            <p className="calm-muted mt-1 text-sm leading-6">Selecciona una fila para editarla o eliminarla.</p>
+          <section className="calm-panel mt-6">
+            <h2 className="text-2xl font-semibold tracking-[-0.03em]">Registros enviados</h2>
+            <p className="calm-muted mt-1 text-sm leading-6">Usa la acción de cada movimiento para consultar o editar.</p>
             <ClientMovementsTable
               categories={categories}
               currentUserId={user.id}
@@ -104,20 +141,26 @@ export default async function CompanyPage({
                 displayDate: shortDate(item.date),
                 type: item.type,
                 source: item.source,
-                description: item.description,
-                counterpartyName: item.counterpartyName,
-                total: item.total,
-                paymentStatus: item.paymentStatus,
-                createdById: item.createdById,
+                 description: item.description,
+                 counterpartyName: item.counterpartyName,
+                 counterpartyRfc: item.counterpartyRfc,
+                 categoryName: item.category?.name ?? null,
+                 total: item.total,
+                 paymentStatus: item.paymentStatus,
+                 paymentMethod: item.fiscalDocument?.paymentMethod ?? null,
+                 paymentForm: item.fiscalDocument?.paymentForm ?? null,
+                  isCredit: isCreditTransaction(item),
+                  reviewStatus: item.reviewStatus,
+                  reviewNote: item.reviewNote,
+                  createdById: item.createdById,
               }))}
             />
           </section>
         ) : captureMode ? (
-          <section className="calm-panel mt-8">
+          <section className="calm-panel mt-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                  <p className="calm-eyebrow">Accion principal</p>
-                  <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">{captureTitles[captureMode]}</h2>
+                  <h2 className="text-2xl font-semibold tracking-[-0.03em]">{captureTitles[captureMode]}</h2>
               </div>
               <p className="calm-muted max-w-xl text-sm leading-6">
                 Captura solo lo necesario. El contador revisara y validara la informacion despues.
@@ -128,6 +171,8 @@ export default async function CompanyPage({
         ) : (
           <ClientFinancialHome
             companyId={company.id}
+            creditCount={creditTransactions.length}
+            creditTotal={creditTotal}
             expenseChange={changeLabel(periodExpense, previousExpense)}
             expenses={periodExpense}
             grossMargin={periodGrossMargin}
@@ -151,7 +196,7 @@ export default async function CompanyPage({
     <div className="ledger-layout">
       <AppSidebar workspaceName={company.tradeName || company.legalName} />
       <main className="ledger-main">
-      <header className="relative flex flex-col gap-6 border-b border-slate-200 pb-8 lg:flex-row lg:items-start lg:justify-between">
+      <header className="calm-header">
         <div>
           <Link href="/empresas" className="calm-muted text-sm font-medium transition hover:text-slate-950">Clientes / {company.tradeName || company.legalName}</Link>
           <h1 className="calm-title">{company.tradeName || company.legalName}</h1>
@@ -159,32 +204,48 @@ export default async function CompanyPage({
         </div>
       </header>
 
-      <section className="calm-panel mt-8">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="calm-eyebrow">Resumen del cliente</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Movimientos y revision</h2>
+      {error && companyErrorMessages[error] ? <div className="calm-alert-error mt-6" role="alert">{companyErrorMessages[error]}</div> : null}
+      {importedCount > 0 ? (
+        <div className="calm-alert-success mt-6" role="status">
+          {importedCount} {importedCount === 1 ? "XML importado" : "XML importados"}.{omittedCount > 0 ? ` ${omittedCount} omitidos por duplicado o formato inválido.` : ""}
+        </div>
+      ) : null}
+
+      <section className="calm-panel mt-6">
+        <div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="calm-eyebrow">Perfil fiscal SAT</p>
+              <h3 className="mt-2 text-lg font-semibold">Datos para validar CFDI 4.0</h3>
+            </div>
+            <span className={`calm-badge ${fiscalProfileComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+              {fiscalProfileComplete ? "Perfil completo" : "Perfil incompleto"}
+            </span>
           </div>
-          <p className="calm-muted max-w-xl text-sm leading-6">
-            Vista principal del contador para revisar ingresos, gastos, pendientes y movimientos que requieren atencion.
-          </p>
+          <dl className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <FiscalValue label="Nombre fiscal" value={company.legalName} />
+            <FiscalValue label="RFC" value={company.rfc || "Pendiente"} />
+            <FiscalValue label="Codigo postal" value={company.postalCode || "Pendiente"} />
+            <FiscalValue label="Regimen fiscal" value={company.taxRegime || "Pendiente"} />
+          </dl>
         </div>
       </section>
 
-      <section className="mt-6 grid gap-4 md:grid-cols-5">
+      <section className="calm-card mt-6 grid overflow-hidden sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Ingresos" value={currency(income)} tone="emerald" />
         <Metric label="Gastos" value={currency(expense)} tone="rose" />
+        <Metric label="Cuentas por pagar" value={currency(creditTotal)} tone="amber" />
         <Metric label="Margen bruto" value={grossMargin} tone="slate" />
         <Metric label="Sin revisar" value={String(pendingReview)} tone="amber" />
         <Metric label="Requieren correccion" value={String(corrections)} tone="blue" />
       </section>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <div className="calm-panel">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <MovementFiltersBubble companyId={company.id} movementFilter={movementFilter} />
-              <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em]">Movimientos</h2>
+              <h2 className="text-xl font-semibold tracking-[-0.02em]">Movimientos</h2>
+              <div className="mt-4"><MovementFiltersBubble companyId={company.id} movementFilter={movementFilter} /></div>
             </div>
             <div className="w-full sm:w-[220px]">
               <RegisterTransactionsBubble companyId={company.id} categories={categories} />
@@ -201,9 +262,14 @@ export default async function CompanyPage({
               source: item.source,
               description: item.description,
               counterpartyName: item.counterpartyName,
+              counterpartyRfc: item.counterpartyRfc,
+              categoryName: item.category?.name ?? null,
               fiscalUuid: item.fiscalDocument?.uuid ?? null,
               total: item.total,
               paymentStatus: item.paymentStatus,
+              paymentMethod: item.fiscalDocument?.paymentMethod ?? null,
+              paymentForm: item.fiscalDocument?.paymentForm ?? null,
+              isCredit: isCreditTransaction(item),
               reviewStatus: item.reviewStatus,
               reviewNote: item.reviewNote,
             }))}
@@ -211,6 +277,25 @@ export default async function CompanyPage({
         </div>
       </section>
       </main>
+    </div>
+  );
+}
+
+function isCreditTransaction(transaction: {
+  fiscalDocument: { paymentMethod: string | null } | null;
+  paymentStatus: string;
+  source: string;
+  type: string;
+}) {
+  if (transaction.type !== "expense" || transaction.paymentStatus !== "pending") return false;
+  return transaction.fiscalDocument?.paymentMethod === "PPD" || transaction.source === "manual";
+}
+
+function FiscalValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="calm-soft-box min-w-0">
+      <dt className="calm-muted text-xs">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-semibold text-slate-900">{value}</dd>
     </div>
   );
 }
@@ -251,12 +336,12 @@ function totalByType(transactions: { total: number; type: string }[], type: stri
 
 function Metric({ label, value, tone }: { label: string; value: string; tone: "emerald" | "rose" | "amber" | "blue" | "slate" }) {
   const tones = {
-    emerald: "border-emerald-100 bg-emerald-50 text-emerald-900",
-    rose: "border-rose-100 bg-rose-50 text-rose-900",
-    amber: "border-amber-100 bg-amber-50 text-amber-900",
-    blue: "border-blue-100 bg-blue-50 text-blue-900",
-    slate: "border-slate-200 bg-white text-slate-950",
+    emerald: "text-emerald-700",
+    rose: "text-slate-950",
+    amber: "text-amber-700",
+    blue: "text-rose-700",
+    slate: "text-slate-950",
   };
 
-  return <div className={`calm-card p-5 ${tones[tone]}`}><p className="text-sm opacity-70">{label}</p><p className="mt-2 text-2xl font-semibold tabular-nums tracking-[-0.03em]">{value}</p></div>;
+  return <div className="border-b border-r border-slate-100 p-5"><p className="calm-muted text-sm">{label}</p><p className={`mt-2 text-2xl font-semibold tabular-nums tracking-[-0.03em] ${tones[tone]}`}>{value}</p></div>;
 }

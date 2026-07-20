@@ -3,6 +3,7 @@ import { XMLParser } from "fast-xml-parser";
 type XmlNode = Record<string, unknown>;
 
 export type ParsedCfdi = {
+  version?: string;
   uuid: string;
   folio?: string;
   issueDate: Date;
@@ -10,6 +11,18 @@ export type ParsedCfdi = {
   issuerName?: string;
   receiverRfc: string;
   receiverName?: string;
+  issuerTaxRegime?: string;
+  receiverTaxRegime?: string;
+  receiverPostalCode?: string;
+  cfdiUse?: string;
+  voucherType?: string;
+  placeOfIssue?: string;
+  exportCode?: string;
+  concepts: Array<{
+    description?: string;
+    hasTaxes: boolean;
+    taxObject?: string;
+  }>;
   subtotal: number;
   taxAmount: number;
   withholdingAmount: number;
@@ -74,8 +87,14 @@ export function parseCfdiXml(xmlContent: string): ParsedCfdi {
     .map((item) => text(item.Descripcion))
     .filter(Boolean)
     .join("; ") || "XML importado";
+  const conceptDetails = conceptoList.map((item) => ({
+    description: text(item.Descripcion),
+    hasTaxes: Object.keys(asNode(item.Impuestos)).length > 0,
+    taxObject: text(item.ObjetoImp),
+  }));
 
   return {
+    version: text(comprobante.Version),
     uuid,
     folio: text(comprobante.Folio),
     issueDate: new Date(date),
@@ -83,6 +102,14 @@ export function parseCfdiXml(xmlContent: string): ParsedCfdi {
     issuerName: text(emisor.Nombre),
     receiverRfc,
     receiverName: text(receptor.Nombre),
+    issuerTaxRegime: text(emisor.RegimenFiscal),
+    receiverTaxRegime: text(receptor.RegimenFiscalReceptor),
+    receiverPostalCode: text(receptor.DomicilioFiscalReceptor),
+    cfdiUse: text(receptor.UsoCFDI),
+    voucherType: text(comprobante.TipoDeComprobante),
+    placeOfIssue: text(comprobante.LugarExpedicion),
+    exportCode: text(comprobante.Exportacion),
+    concepts: conceptDetails,
     subtotal: money(comprobante.SubTotal),
     taxAmount,
     withholdingAmount,

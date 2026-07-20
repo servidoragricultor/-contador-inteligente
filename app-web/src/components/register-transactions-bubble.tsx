@@ -32,11 +32,11 @@ export function RegisterTransactionsBubble({ companyId, categories }: { companyI
 
       {isOpen ? (
         <div className="calm-modal-backdrop" onClick={() => setIsOpen(false)}>
-          <div className="calm-modal w-[min(94vw,860px)] max-w-none" onClick={(event) => event.stopPropagation()}>
+          <div aria-labelledby="register-movements-title" aria-modal="true" className="calm-modal w-[min(94vw,860px)] max-w-none" onClick={(event) => event.stopPropagation()} role="dialog">
             <div className="flex flex-col gap-3 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="calm-eyebrow">Captura del cliente</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Registrar movimientos</h2>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]" id="register-movements-title">Registrar movimientos</h2>
                 <p className="mt-1 text-sm leading-6 text-slate-500">Alta rapida de ingresos, gastos o XML del cliente.</p>
               </div>
               <button aria-label="Cerrar" className="calm-icon-button shrink-0" onClick={() => setIsOpen(false)} type="button">
@@ -44,7 +44,7 @@ export function RegisterTransactionsBubble({ companyId, categories }: { companyI
               </button>
             </div>
 
-            <RegisterTransactionsPanel categories={categories} companyId={companyId} isScrollable />
+            <RegisterTransactionsPanel categories={categories} companyId={companyId} />
           </div>
         </div>
       ) : null}
@@ -68,12 +68,11 @@ export function RegisterTransactionsPanel({
       {mode === "all" || mode === "income" ? <TransactionForm companyId={companyId} type="income" categories={categories} /> : null}
       {mode === "all" || mode === "expense" ? <TransactionForm companyId={companyId} type="expense" categories={categories} /> : null}
       {mode === "all" || mode === "xml" ? <XmlUploadForm companyId={companyId} /> : null}
-      {mode === "income" || mode === "expense" ? <XmlUploadForm companyId={companyId} compact /> : null}
     </div>
   );
 }
 
-function XmlUploadForm({ companyId, compact = false }: { companyId: string; compact?: boolean }) {
+function XmlUploadForm({ companyId }: { companyId: string }) {
   const [fileNames, setFileNames] = useState<string[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,15 +104,15 @@ function XmlUploadForm({ companyId, compact = false }: { companyId: string; comp
   }
 
   return (
-    <form action={importXml} className={compact ? "lg:col-span-2" : "calm-soft-box p-5 lg:col-span-2"} ref={formRef}>
-      {!compact ? <div>
+    <form action={importXml} className="calm-soft-box p-5 lg:col-span-2" ref={formRef}>
+      <div>
         <p className="calm-eyebrow">Documento fiscal</p>
         <h3 className="mt-2 text-lg font-semibold">Importar XML</h3>
         <p className="calm-muted mt-1 text-sm leading-6">Arrastra tu CFDI y crearemos el registro automaticamente.</p>
-      </div> : null}
+      </div>
       <input type="hidden" name="companyId" value={companyId} />
       <label
-        className={`${compact ? "flex min-h-24 px-4 py-4" : "mt-5 flex min-h-48 px-6 py-8"} cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed text-center transition duration-150 ${
+        className={`mt-5 flex min-h-40 cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-8 text-center transition duration-150 ${
           isDragging
             ? "border-emerald-600 bg-emerald-50"
             : fileNames.length > 0
@@ -130,10 +129,10 @@ function XmlUploadForm({ companyId, compact = false }: { companyId: string; comp
         <span className="text-sm font-semibold text-slate-900">
           {fileNames.length > 0
             ? `${fileNames.length} XML ${fileNames.length === 1 ? "listo" : "listos"}`
-            : compact ? "Arrastra XML o haz clic" : "Arrastra aqui tus archivos XML"}
+            : "Arrastra aqui tus archivos XML"}
         </span>
-        {!compact ? <span className="calm-muted mt-1 max-w-full truncate text-xs">{fileNames.length > 0 ? fileNames.join(", ") : "o haz clic para seleccionarlos"}</span> : null}
-        <span className={`calm-muted text-xs ${compact ? "mt-1" : "mt-3"}`}>{compact ? "Uno o varios archivos .xml" : "Puedes cargar varios archivos .xml a la vez"}</span>
+        <span className="calm-muted mt-1 max-w-full truncate text-xs">{fileNames.length > 0 ? fileNames.join(", ") : "o haz clic para seleccionarlos"}</span>
+        <span className="calm-muted mt-3 text-xs">Puedes cargar varios archivos .xml a la vez</span>
         <input
           accept=".xml,text/xml,application/xml"
           className="sr-only"
@@ -156,41 +155,46 @@ function XmlUploadForm({ companyId, compact = false }: { companyId: string; comp
 function TransactionForm({ companyId, type, categories }: { companyId: string; type: "income" | "expense"; categories: string[] }) {
   const isIncome = type === "income";
   const today = new Date().toISOString().slice(0, 10);
-  const tone = isIncome
-    ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-    : "border-rose-200 bg-rose-50 text-rose-950";
-  const buttonTone = isIncome ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700";
 
   return (
-    <form action={createTransaction} className={`rounded-3xl border p-5 shadow-sm ${tone}`}>
+    <form action={createTransaction} className="calm-card p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium opacity-70">{isIncome ? "Dinero que entra" : "Dinero que sale"}</p>
+          <p className="calm-muted text-sm">{isIncome ? "Dinero que entra" : "Dinero que sale"}</p>
           <h3 className="mt-1 text-2xl font-semibold">{isIncome ? "Ingreso" : "Gasto"}</h3>
         </div>
-        <span className="rounded-full bg-white/80 px-3 py-1 text-sm font-semibold shadow-sm">
+        <span className={`calm-badge ${isIncome ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"}`}>
           {isIncome ? "+" : "-"}
         </span>
       </div>
       <input type="hidden" name="companyId" value={companyId} />
       <input type="hidden" name="type" value={type} />
       <div className="mt-4 grid gap-3">
-        <input className="rounded-2xl border border-white/70 bg-white px-4 py-4 text-lg font-semibold shadow-sm transition focus:ring-4 focus:ring-slate-950/5" name="total" type="number" step="0.01" min="0" placeholder="Monto" required />
+        <label className="calm-field">Monto
+          <input className="calm-input text-lg font-semibold" name="total" type="number" step="0.01" min="0" placeholder="0.00" required />
+        </label>
         <div className="grid gap-3 sm:grid-cols-2">
-          <input className="rounded-2xl border border-white/70 bg-white px-4 py-3 shadow-sm transition focus:ring-4 focus:ring-slate-950/5" name="date" type="date" defaultValue={today} required />
-          <select className="rounded-2xl border border-white/70 bg-white px-4 py-3 shadow-sm transition focus:ring-4 focus:ring-slate-950/5" name="paymentStatus" defaultValue={isIncome ? "collected" : "paid"}>
-            <option value={isIncome ? "collected" : "paid"}>{isIncome ? "Cobrado" : "Pagado"}</option>
-            <option value="pending">Pendiente</option>
-          </select>
+          <label className="calm-field">Fecha
+            <input className="calm-input font-normal" name="date" type="date" defaultValue={today} required />
+          </label>
+          <label className="calm-field">Estado de pago
+            <select className="calm-input font-normal" name="paymentStatus" defaultValue={isIncome ? "collected" : "paid"}>
+              <option value={isIncome ? "collected" : "paid"}>{isIncome ? "Cobrado" : "Pagado"}</option>
+              <option value="pending">{isIncome ? "Pendiente" : "A credito / pendiente"}</option>
+            </select>
+          </label>
         </div>
-        <input className="rounded-2xl border border-white/70 bg-white px-4 py-3 shadow-sm transition focus:ring-4 focus:ring-slate-950/5" name="description" placeholder={isIncome ? "Cliente o descripcion" : "Proveedor o descripcion"} required />
-        <input className="rounded-2xl border border-white/70 bg-white px-4 py-3 shadow-sm transition focus:ring-4 focus:ring-slate-950/5" name="counterpartyName" placeholder={isIncome ? "Cliente opcional" : "Proveedor opcional"} />
+        <label className="calm-field">Descripcion
+          <input className="calm-input font-normal" name="description" placeholder={isIncome ? "Concepto del ingreso" : "Concepto del gasto"} required />
+        </label>
         {!isIncome ? (
-          <select className="rounded-2xl border border-white/70 bg-white px-4 py-3 shadow-sm transition focus:ring-4 focus:ring-slate-950/5" name="categoryName" defaultValue="Sin clasificar">
-            {categories.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
+          <label className="calm-field">Categoria
+            <select className="calm-input font-normal" name="categoryName" defaultValue="Sin clasificar">
+              {categories.map((name) => <option key={name} value={name}>{name}</option>)}
+            </select>
+          </label>
         ) : null}
-        <button className={`rounded-2xl px-4 py-4 text-base font-semibold text-white transition ${buttonTone}`} type="submit">
+        <button className="calm-button-primary mt-1 w-full" type="submit">
           {isIncome ? "Guardar ingreso" : "Guardar gasto"}
         </button>
       </div>

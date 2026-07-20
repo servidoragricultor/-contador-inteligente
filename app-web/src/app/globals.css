@@ -130,6 +130,15 @@ textarea {
     border-color: var(--color-primary);
   }
 
+  .calm-field {
+    @apply grid gap-1.5 text-sm font-medium text-slate-700;
+  }
+
+  .calm-help {
+    color: var(--color-muted);
+    @apply text-xs font-normal leading-5;
+  }
+
   .calm-button {
     border-radius: var(--radius-sm);
     @apply inline-flex min-h-11 items-center justify-center px-4 py-2.5 text-sm font-medium transition duration-150;
@@ -187,6 +196,22 @@ textarea {
     @apply border p-4 text-sm font-medium;
   }
 
+  .calm-alert-error {
+    border-color: rgba(220, 38, 38, 0.22);
+    background: rgba(220, 38, 38, 0.07);
+    color: #991b1b;
+    border-radius: var(--radius-sm);
+    @apply border p-4 text-sm font-medium;
+  }
+
+  .calm-alert-success {
+    border-color: rgba(22, 163, 74, 0.22);
+    background: rgba(22, 163, 74, 0.07);
+    color: #166534;
+    border-radius: var(--radius-sm);
+    @apply border p-4 text-sm font-medium;
+  }
+
   .calm-soft-box {
     border-color: var(--color-border);
     border-radius: var(--radius-sm);
@@ -232,6 +257,12 @@ textarea {
   .ledger-layout {
     background: var(--color-background);
     @apply min-h-screen lg:pl-[272px];
+  }
+
+  @media (min-width: 1024px) {
+    .ledger-layout:has(.ledger-sidebar-collapsed) {
+      padding-left: 88px;
+    }
   }
 
   .ledger-main {
@@ -329,5 +360,53 @@ textarea {
 
   .calm-table tbody tr {
     @apply transition duration-150 hover:bg-slate-50/80;
+  }
+
+  @media (max-width: 767px) {
+    .responsive-table thead {
+      @apply sr-only;
+    }
+
+    .responsive-table,
+    .responsive-table tbody,
+    .responsive-table tr,
+    .responsive-table td {
+      @apply block w-full;
+    }
+
+    .responsive-table tbody {
+      @apply grid gap-3;
+    }
+
+    .responsive-table tr {
+      border-color: var(--color-border);
+      border-radius: var(--radius-md);
+      @apply border bg-white p-4;
+    }
+
+    .responsive-table td {
+      @apply grid grid-cols-[7rem_minmax(0,1fr)] gap-3 border-0 py-2 text-right;
+    }
+
+    .responsive-table td::before {
+      content: attr(data-label);
+      color: var(--color-muted);
+      @apply text-left text-xs font-medium uppercase tracking-wide;
+    }
+
+    .responsive-table td > * {
+      @apply ml-auto;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

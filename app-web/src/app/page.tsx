@@ -2,8 +2,15 @@ import { redirect } from "next/navigation";
 import { login, registerAccountant } from "@/app/actions";
 import { getCurrentUser } from "@/lib/auth";
 
-export default async function Home() {
+const authErrors: Record<string, string> = {
+  "email-existente": "Ya existe una cuenta con ese correo.",
+  login: "El usuario o la contrasena no son correctos.",
+  registro: "Revisa el nombre, correo y contrasena. La contrasena debe tener al menos 6 caracteres.",
+};
+
+export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await getCurrentUser();
+  const { error } = await searchParams;
 
   if (user) {
     redirect("/empresas");
@@ -30,13 +37,18 @@ export default async function Home() {
         </div>
 
         <div className="grid gap-4">
+          {error && authErrors[error] ? <div className="calm-alert-error" role="alert">{authErrors[error]}</div> : null}
           <form action={login} className="calm-panel">
             <p className="calm-eyebrow">Acceso</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Entrar</h2>
             <p className="calm-muted mt-2 text-sm leading-6">Accede como contador o cliente. La pantalla siguiente se adapta a tu rol.</p>
             <div className="mt-6 grid gap-4">
-              <input className="calm-input" name="email" type="text" placeholder="correo o usuario" required />
-              <input className="calm-input" name="password" type="password" placeholder="Contrasena" required />
+              <label className="calm-field">Correo o usuario
+                <input className="calm-input font-normal" name="email" type="text" autoComplete="username" required />
+              </label>
+              <label className="calm-field">Contrasena
+                <input className="calm-input font-normal" name="password" type="password" autoComplete="current-password" required />
+              </label>
               <button className="calm-button-primary w-full" type="submit">Entrar</button>
             </div>
           </form>
@@ -46,9 +58,15 @@ export default async function Home() {
             <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em]">Crear cuenta contador</h2>
             <p className="calm-muted mt-2 text-sm leading-6">Crea tu espacio para administrar clientes.</p>
             <div className="mt-6 grid gap-4">
-              <input className="calm-input" name="name" placeholder="Nombre" required />
-              <input className="calm-input" name="email" type="email" placeholder="correo@despacho.com" required />
-              <input className="calm-input" name="password" type="password" placeholder="Minimo 6 caracteres" required />
+              <label className="calm-field">Nombre
+                <input className="calm-input font-normal" name="name" autoComplete="name" required />
+              </label>
+              <label className="calm-field">Correo
+                <input className="calm-input font-normal" name="email" type="email" autoComplete="email" placeholder="correo@despacho.com" required />
+              </label>
+              <label className="calm-field">Contrasena
+                <input className="calm-input font-normal" name="password" type="password" autoComplete="new-password" placeholder="Minimo 6 caracteres" required />
+              </label>
               <button className="calm-button-secondary w-full" type="submit">Crear cuenta</button>
             </div>
           </form>

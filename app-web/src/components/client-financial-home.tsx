@@ -17,6 +17,8 @@ type RecentMovement = {
 
 export function ClientFinancialHome({
   companyId,
+  creditCount,
+  creditTotal,
   expenseChange,
   expenses,
   grossMargin,
@@ -31,6 +33,8 @@ export function ClientFinancialHome({
   topIncomes,
 }: {
   companyId: string;
+  creditCount: number;
+  creditTotal: number;
   expenseChange: string;
   expenses: number;
   grossMargin: string;
@@ -65,9 +69,10 @@ export function ClientFinancialHome({
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <section className="calm-card grid overflow-hidden sm:grid-cols-2 lg:grid-cols-3">
         <DashboardMetric comparison={incomeChange} label="Ingresos" tone="success" value={currency(incomes)} />
         <DashboardMetric comparison={expenseChange} label="Gastos" tone="danger" value={currency(expenses)} />
+        <DashboardMetric comparison={`${creditCount} ${creditCount === 1 ? "factura pendiente" : "facturas pendientes"}`} label="Cuentas por pagar" tone="warning" value={currency(creditTotal)} />
         <DashboardMetric comparison="Ingresos menos gastos" label="Ganancia bruta estimada" tone={grossProfit >= 0 ? "success" : "danger"} value={currency(grossProfit)} />
         <DashboardMetric comparison="Sobre los ingresos" label="Margen bruto" tone="neutral" value={grossMargin} />
         <DashboardMetric comparison="Por validar" label="Pendientes" tone="warning" value={String(pendingReview)} />
@@ -127,7 +132,7 @@ function DashboardMetric({ comparison, label, tone, value }: { comparison: strin
   };
 
   return (
-    <div className="calm-card p-5">
+    <div className="border-b border-r border-slate-100 p-5">
       <p className="calm-muted text-sm">{label}</p>
       <p className={`mt-2 text-2xl font-semibold tabular-nums tracking-[-0.03em] ${tones[tone]}`}>{value}</p>
       <p className="calm-muted mt-2 text-xs">{comparison}</p>

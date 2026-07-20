@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { updateReviewStatus, updateTransaction } from "@/app/actions";
+import { deleteTransaction, updateReviewStatus, updateTransaction } from "@/app/actions";
 import { currency, paymentLabel } from "@/lib/format";
+import { paymentFormLabel, paymentMethodLabel } from "@/lib/cfdi-classification";
 
 type AccountantMovement = {
   id: string;
@@ -13,9 +14,14 @@ type AccountantMovement = {
   source: string;
   description: string;
   counterpartyName: string | null;
+  counterpartyRfc: string | null;
+  categoryName: string | null;
   fiscalUuid: string | null;
   total: number;
   paymentStatus: string;
+  paymentMethod: string | null;
+  paymentForm: string | null;
+  isCredit: boolean;
   reviewStatus: string;
   reviewNote: string | null;
 };
@@ -45,7 +51,7 @@ export function AccountantMovementsTable({
 
   return (
     <div className="mt-5 overflow-x-auto">
-      <table className="calm-table min-w-[850px]">
+      <table className="calm-table responsive-table md:min-w-[850px]">
         <thead>
           <tr>
             <th className="py-3">Fecha</th>
@@ -58,17 +64,37 @@ export function AccountantMovementsTable({
         </thead>
         <tbody>
           {transactions.map((item) => (
-            <tr className="cursor-pointer" key={item.id} onClick={() => setSelected(item)}>
-              <td className="py-4">{item.displayDate}</td>
-              <td>{item.type === "income" ? "Ingreso" : "Gasto"}<br /><span className="text-xs text-slate-400">{item.source}</span></td>
-              <td>
+            <tr
+              className={`cursor-pointer ${item.reviewStatus === "correction_required" ? "bg-rose-50/80 hover:bg-rose-50" : item.isCredit ? "bg-amber-50/70 hover:bg-amber-50" : ""}`}
+              key={item.id}
+              onClick={() => setSelected(item)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  setSelected(item);
+                }
+              }}
+              tabIndex={0}
+            >
+              <td className="py-4" data-label="Fecha">{item.displayDate}</td>
+              <td data-label="Tipo">{item.type === "income" ? "Ingreso" : "Gasto"}<br /><span className="text-xs text-slate-500">{item.source}</span></td>
+              <td data-label="Descripcion">
                 <span className="font-medium">{item.description}</span><br />
                 <span className="text-xs text-slate-500">{item.counterpartyName || "Sin contraparte"}</span>
                 {item.fiscalUuid ? <span className="mt-1 block text-xs text-blue-600">UUID {item.fiscalUuid}</span> : null}
+                {item.reviewStatus === "correction_required" ? <span className="calm-badge mt-1 block w-fit bg-rose-100 text-rose-800">Alerta fiscal</span> : null}
               </td>
-              <td className="font-medium">{currency(item.total)}</td>
-              <td>{paymentLabel(item.paymentStatus, item.type)}</td>
-              <td>
+              <td className="font-medium tabular-nums" data-label="Total">{currency(item.total)}</td>
+              <td data-label="Pago">
+                <span className="font-medium">{paymentLabel(item.paymentStatus, item.type)}</span>
+                {item.isCredit ? <span className="calm-badge mt-1 block w-fit bg-amber-100 text-amber-800">A credito</span> : null}
+                {item.paymentMethod || item.paymentForm ? (
+                  <span className="calm-muted mt-1 block max-w-48 text-xs">
+                    {paymentMethodLabel(item.paymentMethod)}<br />{paymentFormLabel(item.paymentForm)}
+                  </span>
+                ) : null}
+              </td>
+              <td data-label="Revision">
                 <form action={updateReviewStatus} onClick={(event) => event.stopPropagation()}>
                   <input type="hidden" name="companyId" value={item.companyId} />
                   <input type="hidden" name="transactionId" value={item.id} />
@@ -104,11 +130,11 @@ export function AccountantMovementsTable({
 
           return (
         <div className="calm-modal-backdrop" onClick={() => setSelected(null)}>
-          <form action={updateTransaction} className="calm-modal" onClick={(event) => event.stopPropagation()}>
+          <form action={updateTransaction} aria-labelledby="accountant-movement-title" aria-modal="true" className="calm-modal" onClick={(event) => event.stopPropagation()} role="dialog">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="calm-eyebrow">Editar y revisar</p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">{selected.type === "income" ? "Ingreso" : "Gasto"} registrado</h2>
+                <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]" id="accountant-movement-title">{selected.type === "income" ? "Ingreso" : "Gasto"} registrado</h2>
               </div>
               <button aria-label="Cerrar" className="calm-icon-button shrink-0" onClick={() => setSelected(null)} type="button">
                 ×
@@ -121,26 +147,51 @@ export function AccountantMovementsTable({
             <input type="hidden" name="reviewStatus" value={selected.reviewStatus} />
 
             <div className="mt-6 grid gap-3">
-              <input className="calm-input" name="total" type="number" step="0.01" min="0" defaultValue={selected.total} placeholder="Monto" required />
-              <input className="calm-input" name="date" type="date" defaultValue={selected.date} required />
-              <input className="calm-input" name="description" defaultValue={selected.description} placeholder="Descripcion" required />
-              <input className="calm-input" name="counterpartyName" defaultValue={selected.counterpartyName ?? ""} placeholder="Contraparte opcional" />
+              <label className="calm-field">Monto<input className="calm-input font-normal" name="total" type="number" step="0.01" min="0" defaultValue={selected.total} required /></label>
+              <label className="calm-field">Fecha<input className="calm-input font-normal" name="date" type="date" defaultValue={selected.date} required /></label>
+              <label className="calm-field">Descripcion<input className="calm-input font-normal" name="description" defaultValue={selected.description} required /></label>
+              <label className="calm-field">Contraparte <span className="calm-help">Obtenida automaticamente del XML cuando aplica</span><input className="calm-input font-normal" name="counterpartyName" defaultValue={selected.counterpartyName ?? ""} /></label>
               {selected.type === "expense" ? (
-                <select className="calm-input" name="categoryName" defaultValue="Sin clasificar">
+                <label className="calm-field">Categoria<select className="calm-input font-normal" name="categoryName" defaultValue={selected.categoryName ?? "Sin clasificar"}>
                   {categories.map((name) => <option key={name} value={name}>{name}</option>)}
-                </select>
+                </select></label>
               ) : null}
-              <select className="calm-input" name="paymentStatus" defaultValue={selected.paymentStatus}>
+              <label className="calm-field">Estado de pago<select className="calm-input font-normal" name="paymentStatus" defaultValue={selected.paymentStatus}>
                 <option value={selected.type === "income" ? "collected" : "paid"}>{selected.type === "income" ? "Cobrado" : "Pagado"}</option>
-                <option value="pending">Pendiente</option>
-              </select>
+                <option value="pending">{selected.type === "expense" ? "A credito / pendiente" : "Pendiente"}</option>
+              </select></label>
+
+              {selected.isCredit ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                  <p className="font-semibold">Cuenta por pagar activa</p>
+                  <p className="mt-1 text-xs leading-5 text-amber-700">Cambia el estado a Pagado y guarda para retirarla de Gastos a credito.</p>
+                </div>
+              ) : null}
+
+              {selected.source === "xml" ? (
+                <div className="calm-soft-box grid gap-2 p-4 text-sm">
+                  <p className="calm-eyebrow">Datos obtenidos del CFDI</p>
+                  <p><span className="calm-muted">Contraparte:</span> {selected.counterpartyName || "Sin nombre"}</p>
+                  <p><span className="calm-muted">RFC:</span> {selected.counterpartyRfc || "No indicado"}</p>
+                  <p><span className="calm-muted">Metodo:</span> {paymentMethodLabel(selected.paymentMethod)}</p>
+                  <p><span className="calm-muted">Forma:</span> {paymentFormLabel(selected.paymentForm)}</p>
+                  {selected.categoryName ? <p><span className="calm-muted">Categoria sugerida:</span> {selected.categoryName}</p> : null}
+                </div>
+              ) : null}
+
+              {selected.reviewStatus === "correction_required" ? (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+                  <p className="font-semibold">El CFDI requiere correccion fiscal</p>
+                  <p className="mt-1 text-xs leading-5 text-rose-700">{selected.reviewNote || "Los datos del XML no coinciden con el perfil fiscal."}</p>
+                </div>
+              ) : null}
 
               <div className="calm-soft-box mt-2 grid gap-3 p-4">
                 <div>
                   <p className="calm-eyebrow">Accion</p>
                   <p className="mt-1 text-sm font-medium text-slate-950">Revision contable</p>
                 </div>
-                <textarea className="calm-input min-h-24" name="reviewNote" defaultValue={selected.reviewNote ?? ""} placeholder="Nota opcional para correccion" />
+                <label className="calm-field">Nota de revision <span className="calm-help">Opcional</span><textarea className="calm-input min-h-24 font-normal" name="reviewNote" defaultValue={selected.reviewNote ?? ""} placeholder="Indicaciones para corregir el registro" /></label>
                 <div>
                   <button
                     aria-pressed={isReviewed}
@@ -161,9 +212,23 @@ export function AccountantMovementsTable({
                 </div>
               </div>
 
-              <button className="calm-button-primary mt-2 w-full" type="submit">
-                Guardar cambios
-              </button>
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <button
+                  className="calm-button-danger w-full"
+                  formAction={deleteTransaction}
+                  onClick={(event) => {
+                    if (!window.confirm("Seguro que quieres eliminar este registro? Esta accion no se puede deshacer.")) {
+                      event.preventDefault();
+                    }
+                  }}
+                  type="submit"
+                >
+                  Eliminar registro
+                </button>
+                <button className="calm-button-primary w-full" type="submit">
+                  Guardar cambios
+                </button>
+              </div>
             </div>
           </form>
         </div>
