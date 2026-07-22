@@ -58,7 +58,7 @@ export function ClientFinancialHome({
         </div>
         <form className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:w-auto">
           <label className="sr-only" htmlFor="dashboard-month">Seleccionar mes</label>
-          <input className="calm-input min-w-0" defaultValue={month} id="dashboard-month" name="mes" type="month" />
+          <input autoComplete="off" className="calm-input min-w-0" defaultValue={month} id="dashboard-month" name="mes" type="month" />
           <button className="calm-button-secondary" type="submit">Ver</button>
         </form>
       </section>
@@ -113,8 +113,8 @@ export function ClientFinancialHome({
           <p className="calm-eyebrow">Accesos rapidos</p>
           <h3 className="mt-2 text-xl font-semibold">Registrar</h3>
           <div className="mt-5 grid gap-3">
-            <Link className="calm-button-primary w-full" href={`/empresas/${companyId}?captura=income`}>+ Ingreso</Link>
-            <Link className="calm-button-secondary w-full" href={`/empresas/${companyId}?captura=expense`}>+ Gasto</Link>
+            <Link className="calm-button-primary w-full" href={`/empresas/${companyId}?captura=income`}><span aria-hidden="true">+</span>&nbsp;Ingreso</Link>
+            <Link className="calm-button-secondary w-full" href={`/empresas/${companyId}?captura=expense`}><span aria-hidden="true">+</span>&nbsp;Gasto</Link>
             <Link className="calm-button-secondary w-full" href={`/empresas/${companyId}?captura=xml`}>Importar XML</Link>
           </div>
         </div>

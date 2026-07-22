@@ -56,20 +56,42 @@ Pesos:
 - 500: botones.
 - 400: texto.
 
-## Colores
+## Colores (paleta Libro Mayor)
 
-- Primario: `#1A3B2A`.
-- Secundario: `#2F5D44`.
-- Fondo principal: `#F8FAFC`.
-- Cards: `#FFFFFF`.
-- Bordes: `#E5E7EB`.
-- Texto principal: `#111827`.
-- Texto secundario: `#6B7280`.
-- Hover: `#F3F4F6`.
-- Exito: `#16A34A`.
-- Advertencia: `#F59E0B`.
-- Error: `#DC2626`.
-- Informacion: `#2563EB`.
+Inspirada en el mundo contable: tinta verde, papel y un acento de laton usado con moderacion. Es la paleta oficial y unica del producto.
+
+Base:
+
+- Tinta / primario: `#15352A`.
+- Salvia / secundario: `#2F5D44`.
+- Papel / fondo principal: `#F5F6F3`.
+- Lino / superficie y cards: `#FFFFFF`.
+- Bruma / bordes: `#E4E7E2`.
+- Texto principal: `#14201A`.
+- Texto secundario: `#5E6B62`.
+- Hover: `#EFF1ED`.
+
+Acento (firma, usar con moderacion):
+
+- Laton: `#B0842A` para rellenos, indicadores y detalles.
+- Laton fuerte: `#8A6518` para texto pequeno como eyebrows (cumple contraste AA).
+- Laton suave: `#F4ECD8` para fondos y badges de enfasis.
+
+Semanticos (terrosos, armonizados con la tinta, nunca los tonos neon por defecto):
+
+- Exito: `#2E7D53`.
+- Advertencia: `#B4791F`.
+- Error: `#B23A2E`.
+- Informacion: `#35688C`.
+
+Uso del color:
+
+- Verde tinta: navegacion, acciones principales y estados positivos de marca.
+- Laton: solo el elemento firma de cada vista, por ejemplo el eyebrow de seccion. No competir con el verde.
+- Rojo: errores y correcciones fiscales reales.
+- Ambar: pendientes y cuentas por pagar.
+- Neutros: superficies, texto y datos normales.
+- Nunca usar un color plano saturado en tarjetas de contenido habitual.
 
 ## Radios
 
@@ -113,6 +135,19 @@ Tokens principales:
 - `--shadow-sm`.
 - `--shadow-md`.
 - `--shadow-lg`.
+
+## Regla para paginas nuevas
+
+Toda pantalla, componente o correo nuevo debe conservar la paleta Libro Mayor. Es obligatorio:
+
+- Derivar todo color, radio y sombra de los tokens de `globals.css`. Nunca introducir hex arbitrarios en componentes.
+- Usar las clases del sistema (`calm-*`, `ledger-*`) antes de crear estilos nuevos. Si falta una variante, agregarla como clase reutilizable, no como estilo suelto.
+- Reservar el laton para un unico elemento firma por vista; el verde tinta es el ancla.
+- Fondo papel, superficies blancas, bordes bruma y texto tinta como base de cada pantalla.
+- Mantener el color semantico disciplinado: verde, ambar, rojo e info solo para estados reales.
+- Cumplir el piso de calidad: responsive hasta movil, foco visible, contraste AA y `prefers-reduced-motion`.
+
+Si un diseno nuevo necesita un color fuera de la paleta, primero se actualiza este documento y los tokens; nunca al reves.
 
 ## Regla de oro
 

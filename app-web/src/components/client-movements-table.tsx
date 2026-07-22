@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { deleteTransaction, updateTransaction } from "@/app/actions";
 import { currency, paymentLabel } from "@/lib/format";
 import { paymentFormLabel, paymentMethodLabel } from "@/lib/cfdi-classification";
+import { SubmitButton } from "@/components/submit-button";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
+import { useUnsavedChanges } from "@/hooks/use-unsaved-changes";
 
 type ClientMovement = {
   id: string;
@@ -36,31 +39,54 @@ export function ClientMovementsTable({
   transactions: ClientMovement[];
 }) {
   const [selected, setSelected] = useState<ClientMovement | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const dialogRef = useRef<HTMLFormElement>(null);
+  useDialogFocus(Boolean(selected), dialogRef);
+  useUnsavedChanges(isDirty);
+
+  function closeDialog() {
+    if (isDirty && !window.confirm("¿Quieres cerrar sin guardar los cambios?")) return;
+    setSelected(null);
+    setIsDirty(false);
+  }
+
+  function openDialog(item: ClientMovement) {
+    setIsDirty(false);
+    setSelected(item);
+  }
 
   useEffect(() => {
     if (!selected) return;
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setSelected(null);
+        if (!isDirty || window.confirm("¿Quieres cerrar sin guardar los cambios?")) {
+          setSelected(null);
+          setIsDirty(false);
+        }
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selected]);
+  }, [selected, isDirty]);
 
   return (
-    <div className="mt-5 overflow-x-auto">
-      <table className="calm-table responsive-table md:min-w-[720px]">
+    <div className="mt-5">
+      <div className="ledger-register-guide" id="client-register-help">
+        <p><strong>{transactions.length}</strong> {transactions.length === 1 ? "movimiento" : "movimientos"}</p>
+        <p>Selecciona un registro para ver sus detalles o corregirlo.</p>
+      </div>
+      {transactions.length > 0 ? <div className="overflow-x-auto">
+      <table aria-describedby="client-register-help" className="calm-table ledger-register responsive-table md:min-w-[760px]">
         <thead>
           <tr>
             <th className="py-3">Fecha</th>
-            <th>Tipo</th>
-            <th>Descripcion</th>
-            <th>Total</th>
+            <th>Movimiento</th>
+            <th>Clasificación</th>
             <th>Estado</th>
+            <th className="text-right">Importe</th>
           </tr>
         </thead>
         <tbody>
@@ -69,56 +95,65 @@ export function ClientMovementsTable({
 
             return (
               <tr
-                className={`${canEdit ? "cursor-pointer" : ""} ${item.reviewStatus === "correction_required" ? "bg-rose-50/80 hover:bg-rose-50" : item.isCredit ? "bg-amber-50/70 hover:bg-amber-50" : ""}`}
+                aria-label={canEdit ? `Editar ${item.type === "income" ? "ingreso" : "gasto"}: ${item.description}` : undefined}
+                className={`calm-content-auto ledger-register-row ${canEdit ? "calm-table-row-interactive" : ""}`}
+                data-kind={item.type}
                 key={item.id}
-                onClick={() => {
-                  if (canEdit) setSelected(item);
-                }}
-                onKeyDown={(event) => {
-                  if (canEdit && (event.key === "Enter" || event.key === " ")) {
-                    event.preventDefault();
-                    setSelected(item);
-                  }
-                }}
+                onClick={canEdit ? () => openDialog(item) : undefined}
+                onKeyDown={canEdit ? (event) => {
+                  if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+                  event.preventDefault();
+                  openDialog(item);
+                } : undefined}
                 tabIndex={canEdit ? 0 : undefined}
               >
-                <td className="py-4" data-label="Fecha">{item.displayDate}</td>
-                <td data-label="Tipo">{item.type === "income" ? "Ingreso" : "Gasto"}<br /><span className="text-xs text-slate-500">{item.source}</span></td>
-                <td data-label="Descripcion">
-                  <span className="font-medium">{item.description}</span><br />
-                  <span className="text-xs text-slate-500">{item.counterpartyName || "Sin contraparte"}</span>
-                  {item.reviewStatus === "correction_required" ? <span className="calm-badge mt-1 block w-fit bg-rose-100 text-rose-800">Requiere correccion</span> : null}
+                <td className="ledger-register-date" data-label="Fecha">{item.displayDate}</td>
+                <td data-label="Movimiento">
+                  <div className="ledger-register-concept">
+                    <span className={`ledger-kind ${item.type === "income" ? "ledger-kind-income" : "ledger-kind-expense"}`}>{item.type === "income" ? "Ingreso" : "Gasto"}</span>
+                    <span className="font-semibold">{item.description}</span>
+                    <span className="calm-muted text-xs">{item.counterpartyName || "Sin contraparte"}</span>
+                    {!canEdit ? <span className="calm-muted text-xs">Solo lectura</span> : null}
+                  </div>
                 </td>
-                <td className="font-medium tabular-nums" data-label="Total">{currency(item.total)}</td>
+                <td data-label="Clasificación">
+                  <span className="font-medium">{item.categoryName || (item.type === "income" ? "Ingreso general" : "Sin clasificar")}</span>
+                  <span className="calm-muted mt-1 block text-xs">{movementSourceLabel(item.source)}</span>
+                </td>
                 <td data-label="Estado">
-                  <span className="font-medium">{paymentLabel(item.paymentStatus, item.type)}</span>
-                  {item.isCredit ? <span className="calm-badge mt-1 block w-fit bg-amber-100 text-amber-800">A credito</span> : null}
+                  <span className={`ledger-status ${item.isCredit ? "ledger-status-warning" : "ledger-status-neutral"}`}>{paymentLabel(item.paymentStatus, item.type)}</span>
+                  {item.isCredit ? <span className="ledger-register-note ledger-register-note-warning">Cuenta por pagar</span> : null}
+                  {item.reviewStatus === "correction_required" ? <span className="ledger-register-note ledger-register-note-error">Requiere corrección</span> : null}
                   {item.paymentMethod || item.paymentForm ? (
-                    <span className="calm-muted mt-1 block max-w-48 text-xs">
-                      {paymentMethodLabel(item.paymentMethod)}<br />{paymentFormLabel(item.paymentForm)}
+                    <span className="calm-muted mt-1.5 block max-w-48 text-xs leading-5">
+                      <span translate="no">{paymentMethodLabel(item.paymentMethod)}<br />{paymentFormLabel(item.paymentForm)}</span>
                     </span>
                   ) : null}
+                </td>
+                <td className={`ledger-register-amount ${item.type === "income" ? "ledger-amount-income" : "ledger-amount-expense"}`} data-label="Importe">
+                  <span aria-hidden="true">{item.type === "income" ? "+" : "−"}</span>{currency(item.total)}
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
+      </div> : null}
       {transactions.length === 0 ? (
         <div className="calm-empty">
-          Aun no hay registros capturados.
+          Aún no hay movimientos. Registra un ingreso, un gasto o importa un XML para comenzar.
         </div>
       ) : null}
 
       {selected ? (
-        <div className="calm-modal-backdrop" onClick={() => setSelected(null)}>
-          <form action={updateTransaction} aria-labelledby="client-movement-title" aria-modal="true" className="calm-modal" onClick={(event) => event.stopPropagation()} role="dialog">
+        <div className="calm-modal-backdrop">
+          <form action={updateTransaction} aria-labelledby="client-movement-title" aria-modal="true" className="calm-modal" onChange={() => setIsDirty(true)} onSubmit={() => setIsDirty(false)} ref={dialogRef} role="dialog">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="calm-eyebrow">Editar registro</p>
                 <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]" id="client-movement-title">{selected.type === "income" ? "Ingreso" : "Gasto"}</h2>
               </div>
-              <button aria-label="Cerrar" className="calm-icon-button shrink-0" onClick={() => setSelected(null)} type="button">
+              <button aria-label="Cerrar" className="calm-icon-button shrink-0" onClick={closeDialog} type="button">
                 ×
               </button>
             </div>
@@ -128,15 +163,15 @@ export function ClientMovementsTable({
             <input type="hidden" name="type" value={selected.type} />
 
             <div className="mt-6 grid gap-3">
-              <label className="calm-field">Monto<input className="calm-input font-normal" name="total" type="number" step="0.01" min="0" defaultValue={selected.total} required /></label>
-              <label className="calm-field">Fecha<input className="calm-input font-normal" name="date" type="date" defaultValue={selected.date} required /></label>
-              <label className="calm-field">Descripcion<input className="calm-input font-normal" name="description" defaultValue={selected.description} required /></label>
+              <label className="calm-field">Monto<input autoComplete="off" className="calm-input font-normal" inputMode="decimal" name="total" type="number" step="0.01" min="0" defaultValue={selected.total} required /></label>
+              <label className="calm-field">Fecha<input autoComplete="off" className="calm-input font-normal" name="date" type="date" defaultValue={selected.date} required /></label>
+              <label className="calm-field">Descripcion<input autoComplete="off" className="calm-input font-normal" name="description" defaultValue={selected.description} required /></label>
               {selected.type === "expense" ? (
-                <label className="calm-field">Categoria<select className="calm-input font-normal" name="categoryName" defaultValue={selected.categoryName ?? "Sin clasificar"}>
+                <label className="calm-field">Categoria<select autoComplete="off" className="calm-input font-normal" name="categoryName" defaultValue={selected.categoryName ?? "Sin clasificar"}>
                   {categories.map((name) => <option key={name} value={name}>{name}</option>)}
                 </select></label>
               ) : null}
-              <label className="calm-field">Estado de pago<select className="calm-input font-normal" name="paymentStatus" defaultValue={selected.paymentStatus}>
+              <label className="calm-field">Estado de pago<select autoComplete="off" className="calm-input font-normal" name="paymentStatus" defaultValue={selected.paymentStatus}>
                 <option value={selected.type === "income" ? "collected" : "paid"}>{selected.type === "income" ? "Cobrado" : "Pagado"}</option>
                 <option value="pending">{selected.type === "expense" ? "A credito / pendiente" : "Pendiente"}</option>
               </select></label>
@@ -150,8 +185,8 @@ export function ClientMovementsTable({
                 <div className="calm-soft-box grid gap-2 p-4 text-sm">
                   <p className="calm-eyebrow">Datos obtenidos del CFDI</p>
                   <p><span className="calm-muted">RFC contraparte:</span> {selected.counterpartyRfc || "No indicado"}</p>
-                  <p><span className="calm-muted">Metodo:</span> {paymentMethodLabel(selected.paymentMethod)}</p>
-                  <p><span className="calm-muted">Forma:</span> {paymentFormLabel(selected.paymentForm)}</p>
+                  <p><span className="calm-muted">Metodo:</span> <span translate="no">{paymentMethodLabel(selected.paymentMethod)}</span></p>
+                  <p><span className="calm-muted">Forma:</span> <span translate="no">{paymentFormLabel(selected.paymentForm)}</span></p>
                   {selected.categoryName ? <p><span className="calm-muted">Categoria sugerida:</span> {selected.categoryName}</p> : null}
                 </div>
               ) : null}
@@ -162,7 +197,7 @@ export function ClientMovementsTable({
                 </div>
               ) : null}
               <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
-                <button
+                <SubmitButton
                   className="calm-button-danger w-full sm:w-auto"
                   formAction={deleteTransaction}
                   onClick={(event) => {
@@ -170,13 +205,11 @@ export function ClientMovementsTable({
                       event.preventDefault();
                     }
                   }}
-                  type="submit"
+                  pendingLabel="Eliminando registro…"
                 >
                   Eliminar registro
-                </button>
-                <button className="calm-button-primary w-full sm:w-auto" type="submit">
-                  Guardar cambios
-                </button>
+                </SubmitButton>
+                <SubmitButton className="calm-button-primary w-full sm:w-auto" pendingLabel="Guardando cambios…">Guardar cambios</SubmitButton>
               </div>
             </div>
           </form>
@@ -184,4 +217,8 @@ export function ClientMovementsTable({
       ) : null}
     </div>
   );
+}
+
+function movementSourceLabel(source: string) {
+  return source === "xml" ? "Importado desde CFDI" : "Captura manual";
 }

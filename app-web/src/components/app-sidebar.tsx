@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { logout } from "@/app/actions";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
 
 type NavItem = {
   label: string;
@@ -33,8 +34,10 @@ export function AppSidebar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [isCollapsed, setIsCollapsed] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 1024px)").matches);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const mobileNavigationRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(isMobileOpen, mobileNavigationRef);
   const clientBase = companyId ? `/empresas/${companyId}` : "/empresas";
   const navigationSections: { title: string; items: NavItem[] }[] = variant === "client" ? [
     {
@@ -114,6 +117,7 @@ export function AppSidebar({
                 return (
                   <Link
                     aria-current={isActive ? "page" : undefined}
+                    aria-label={isCollapsed ? item.label : undefined}
                     className={`ledger-nav-item ${isActive ? "ledger-nav-item-active" : ""}`}
                     data-tooltip={item.label}
                     href={item.href}
@@ -135,7 +139,7 @@ export function AppSidebar({
       </nav>
 
       <form action={logout} className="mt-4 border-t border-slate-200 pt-4">
-        <button className="ledger-nav-item w-full" data-tooltip="Salir" type="submit">
+        <button aria-label={isCollapsed ? "Salir" : undefined} className="ledger-nav-item w-full" data-tooltip="Salir" type="submit">
           <span className="ledger-nav-icon" aria-hidden="true"><NavIcon name="logout" /></span>
           {!isCollapsed ? <span>Salir</span> : null}
         </button>
@@ -146,19 +150,22 @@ export function AppSidebar({
   return (
     <>
       <button
+        aria-controls="mobile-navigation"
+        aria-expanded={isMobileOpen}
         aria-label="Abrir navegacion"
-        className="calm-icon-button fixed left-4 top-4 z-40 lg:hidden"
+        className="calm-icon-button fixed z-40 lg:hidden"
         onClick={() => {
           setIsCollapsed(false);
           setIsMobileOpen(true);
         }}
         type="button"
+        style={{ left: "max(1rem, env(safe-area-inset-left))", top: "max(1rem, env(safe-area-inset-top))" }}
       >
         ≡
       </button>
       <div className="hidden lg:block">{sidebar}</div>
       {isMobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
+        <div className="fixed inset-0 z-50 overscroll-contain lg:hidden" id="mobile-navigation" ref={mobileNavigationRef}>
           <button aria-label="Cerrar navegacion" className="absolute inset-0 bg-slate-950/30" onClick={() => setIsMobileOpen(false)} type="button" />
           <div className="relative h-full w-[min(88vw,304px)] p-3">{sidebar}</div>
         </div>

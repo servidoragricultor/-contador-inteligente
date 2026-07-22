@@ -267,8 +267,10 @@ export async function acceptClientInvitation(formData: FormData) {
 }
 
 export async function createTransaction(formData: FormData) {
+  const companyId = String(formData.get("companyId") ?? "");
+  const captureMode = formData.get("type") === "expense" ? "expense" : "income";
   const parsed = transactionSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/empresas?error=movimiento");
+  if (!parsed.success) redirect(`/empresas/${companyId}?captura=${captureMode}&error=movimiento`);
 
   const { user } = await requireCompanyAccess(parsed.data.companyId);
   const category = parsed.data.categoryName
@@ -298,8 +300,9 @@ export async function createTransaction(formData: FormData) {
 }
 
 export async function updateTransaction(formData: FormData) {
+  const companyId = String(formData.get("companyId") ?? "");
   const parsed = updateTransactionSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) redirect("/empresas?error=movimiento");
+  if (!parsed.success) redirect(`/empresas/${companyId}?vista=movimientos&error=movimiento`);
 
   const { user, membership } = await requireCompanyAccess(parsed.data.companyId);
   const transaction = await prisma.transaction.findUnique({

@@ -1,6 +1,7 @@
 "use client";
 
 import { deleteCompany } from "@/app/actions";
+import { SubmitButton } from "@/components/submit-button";
 
 export function DeleteCompanyButton({ companyId, companyName }: { companyId: string; companyName: string }) {
   return (
@@ -8,7 +9,7 @@ export function DeleteCompanyButton({ companyId, companyName }: { companyId: str
       action={deleteCompany}
       onSubmit={(event) => {
         const confirmed = window.confirm(
-          `Estas seguro de eliminar el cliente "${companyName}"? Esta accion eliminara sus ingresos, gastos y XML registrados.`,
+          `¿Estás seguro de eliminar el cliente “${companyName}”? Esta acción eliminará sus ingresos, gastos y XML registrados.`,
         );
 
         if (!confirmed) {
@@ -17,12 +18,12 @@ export function DeleteCompanyButton({ companyId, companyName }: { companyId: str
       }}
     >
       <input type="hidden" name="companyId" value={companyId} />
-      <button
+      <SubmitButton
         className="calm-button-danger px-3 py-1.5 text-xs"
-        type="submit"
+        pendingLabel="Eliminando…"
       >
         Eliminar
-      </button>
+      </SubmitButton>
     </form>
   );
 }

@@ -13,7 +13,7 @@ export function reviewLabel(status: string) {
   const labels: Record<string, string> = {
     unreviewed: "Sin revisar",
     reviewed: "Revisado",
-    correction_required: "Requiere correccion",
+    correction_required: "Requiere corrección",
   };
 
   return labels[status] ?? status;

@@ -57,7 +57,7 @@ export default async function TemporarySectionPage({ params }: { params: Promise
   return (
     <div className="ledger-layout">
       <AppSidebar workspaceName={user.name || "Despacho"} />
-      <main className="ledger-main">
+      <main className="ledger-main" id="main-content">
         <header className="relative flex flex-col gap-6 border-b border-slate-200 pb-8 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="calm-eyebrow">Desactivado temporalmente</p>

@@ -38,6 +38,7 @@ export function ClientFiltersBubble({
   return (
     <div className="relative lg:w-[220px]">
       <button
+        aria-controls="client-filters-panel"
         aria-expanded={isOpen}
         className="calm-button-secondary flex w-full items-center justify-between"
         onClick={() => setIsOpen((value) => !value)}
@@ -47,13 +48,13 @@ export function ClientFiltersBubble({
         <span aria-hidden="true">⌄</span>
       </button>
       {isOpen ? (
-        <div className="calm-modal absolute right-0 top-12 z-20 w-[min(92vw,360px)] max-w-none">
+        <div className="calm-modal absolute right-0 top-12 z-20 w-[min(92vw,360px)] max-w-none" id="client-filters-panel">
           <form className="grid gap-4">
             <input type="hidden" name="vista" value={vista} />
             <input type="hidden" name="q" value={q} />
             <label className="grid gap-1 text-sm font-medium text-slate-700">
               Filtrar
-              <select className="calm-input font-normal" name="filtro" defaultValue={filtro} aria-label="Filtrar clientes">
+              <select autoComplete="off" className="calm-input font-normal" name="filtro" defaultValue={filtro} aria-label="Filtrar clientes">
                 <option value="todos">Todos</option>
                 <option value="pendientes">Con pendientes</option>
                 <option value="rfc">RFC pendiente</option>
@@ -62,14 +63,14 @@ export function ClientFiltersBubble({
             </label>
             <div className="grid gap-2">
               <p className="text-sm font-medium text-slate-700">Vista</p>
-              <div className="flex rounded-xl border border-slate-200 bg-white p-1" aria-label="Selector de vista">
-                <Link className={`calm-filter flex-1 text-center ${vista === "tabla" ? "calm-filter-idle" : "calm-filter-active"}`} href={cardViewHref}>Tarjetas</Link>
-                <Link className={`calm-filter flex-1 text-center ${vista === "tabla" ? "calm-filter-active" : "calm-filter-idle"}`} href={tableViewHref}>Tabla</Link>
+              <div className="flex rounded-xl border border-slate-200 bg-white p-1" aria-label="Selector de vista" role="group">
+                <Link aria-current={vista !== "tabla" ? "page" : undefined} className={`calm-filter flex-1 text-center ${vista === "tabla" ? "calm-filter-idle" : "calm-filter-active"}`} href={cardViewHref}>Tarjetas</Link>
+                <Link aria-current={vista === "tabla" ? "page" : undefined} className={`calm-filter flex-1 text-center ${vista === "tabla" ? "calm-filter-active" : "calm-filter-idle"}`} href={tableViewHref}>Tabla</Link>
               </div>
             </div>
             <label className="grid gap-1 text-sm font-medium text-slate-700">
               Ordenar
-              <select className="calm-input font-normal" name="orden" defaultValue={orden} aria-label="Ordenar clientes">
+              <select autoComplete="off" className="calm-input font-normal" name="orden" defaultValue={orden} aria-label="Ordenar clientes">
                 <option value="recientes">Mas recientes</option>
                 <option value="nombre">Nombre</option>
                 <option value="pendientes">Pendientes</option>

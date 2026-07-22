@@ -10,12 +10,14 @@ import { ClientFinancialHome } from "@/components/client-financial-home";
 import { MovementFiltersBubble } from "@/components/movement-filters-bubble";
 import { parseCfdiXml } from "@/lib/cfdi";
 import { validateCfdiAgainstCompany } from "@/lib/fiscal-validation";
+import { FormError } from "@/components/form-error";
 
 const companyErrorMessages: Record<string, string> = {
   "rfc-requerido-xml": "Completa el RFC del perfil fiscal antes de importar XML.",
   "xml-duplicado": "El XML ya estaba registrado y no se importó nuevamente.",
   "xml-invalido": "No pudimos importar el XML. Verifica que sea un CFDI válido.",
   "xml-vacio": "Selecciona al menos un archivo XML.",
+  movimiento: "No se pudo guardar el movimiento. Revisa el monto, la fecha y la descripción.",
 };
 
 export default async function CompanyPage({
@@ -54,7 +56,7 @@ export default async function CompanyPage({
 
   const income = transactions.filter((item) => item.type === "income").reduce((sum, item) => sum + item.total, 0);
   const expense = transactions.filter((item) => item.type === "expense").reduce((sum, item) => sum + item.total, 0);
-  const grossMargin = income > 0 ? `${(((income - expense) / income) * 100).toFixed(1)}%` : "0.0%";
+  const grossMargin = formatPercent(income > 0 ? (income - expense) / income : 0);
   const pendingReview = transactions.filter((item) => item.reviewStatus === "unreviewed").length;
   const corrections = transactions.filter((item) => item.reviewStatus === "correction_required").length;
   const creditTransactions = transactions.filter(isCreditTransaction);
@@ -81,7 +83,7 @@ export default async function CompanyPage({
       expense: "Registrar gasto",
       xml: "Importar XML",
     };
-    const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(mes ?? "") ? mes! : new Date().toISOString().slice(0, 7);
+    const selectedMonth = /^\d{4}-(0[1-9]|1[0-2])$/.test(mes ?? "") ? mes! : currentMonthInMexico();
     const { end, previousEnd, previousStart, start } = getMonthBounds(selectedMonth);
     const periodTransactions = transactions.filter((item) => item.date >= start && item.date < end);
     const previousTransactions = transactions.filter((item) => item.date >= previousStart && item.date < previousEnd);
@@ -90,7 +92,7 @@ export default async function CompanyPage({
     const previousIncome = totalByType(previousTransactions, "income");
     const previousExpense = totalByType(previousTransactions, "expense");
     const grossProfit = periodIncome - periodExpense;
-    const periodGrossMargin = periodIncome > 0 ? `${((grossProfit / periodIncome) * 100).toFixed(1)}%` : "0.0%";
+    const periodGrossMargin = formatPercent(periodIncome > 0 ? grossProfit / periodIncome : 0);
     const periodPending = periodTransactions.filter((item) => item.reviewStatus === "unreviewed").length;
     const monthLabel = new Intl.DateTimeFormat("es-MX", { month: "long", timeZone: "UTC", year: "numeric" }).format(start);
     const topIncomes = rankCounterparties(periodTransactions.filter((item) => item.type === "income"));
@@ -106,10 +108,10 @@ export default async function CompanyPage({
     return (
       <div className="ledger-layout">
         <AppSidebar companyId={company.id} variant="client" workspaceName={company.tradeName || company.legalName} />
-        <main className="ledger-main max-w-6xl">
+        <main className="ledger-main max-w-6xl" id="main-content">
         <header className="calm-header">
            <div>
-            <h1 className="calm-title">{company.tradeName || company.legalName}</h1>
+            <h1 className="calm-title break-words">{company.tradeName || company.legalName}</h1>
             <p className="calm-subtitle">
               {isMovementsView
                 ? "Consulta los movimientos registrados."
@@ -120,7 +122,7 @@ export default async function CompanyPage({
           </div>
         </header>
 
-        {error && companyErrorMessages[error] ? <div className="calm-alert-error mt-6" role="alert">{companyErrorMessages[error]}</div> : null}
+        {error && companyErrorMessages[error] ? <FormError className="mt-6">{companyErrorMessages[error]}</FormError> : null}
         {importedCount > 0 ? (
           <div className="calm-alert-success mt-6" role="status">
             {importedCount} {importedCount === 1 ? "XML importado" : "XML importados"}.{omittedCount > 0 ? ` ${omittedCount} omitidos por duplicado o formato inválido.` : ""}
@@ -129,8 +131,9 @@ export default async function CompanyPage({
 
         {isMovementsView ? (
           <section className="calm-panel mt-6">
-            <h2 className="text-2xl font-semibold tracking-[-0.03em]">Registros enviados</h2>
-            <p className="calm-muted mt-1 text-sm leading-6">Usa la acción de cada movimiento para consultar o editar.</p>
+            <p className="calm-eyebrow">Libro del mes</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-[-0.03em]">Ingresos y gastos</h2>
+            <p className="calm-muted mt-1 text-sm leading-6">Todo lo que has enviado a tu contador, ordenado para reconocerlo de un vistazo.</p>
             <ClientMovementsTable
               categories={categories}
               currentUserId={user.id}
@@ -195,16 +198,16 @@ export default async function CompanyPage({
   return (
     <div className="ledger-layout">
       <AppSidebar workspaceName={company.tradeName || company.legalName} />
-      <main className="ledger-main">
+      <main className="ledger-main" id="main-content">
       <header className="calm-header">
         <div>
           <Link href="/empresas" className="calm-muted text-sm font-medium transition hover:text-slate-950">Clientes / {company.tradeName || company.legalName}</Link>
-          <h1 className="calm-title">{company.tradeName || company.legalName}</h1>
+          <h1 className="calm-title break-words">{company.tradeName || company.legalName}</h1>
           <p className="calm-subtitle">RFC {company.rfc || "pendiente"}. Revisa movimientos, estados y pendientes sin ruido.</p>
         </div>
       </header>
 
-      {error && companyErrorMessages[error] ? <div className="calm-alert-error mt-6" role="alert">{companyErrorMessages[error]}</div> : null}
+      {error && companyErrorMessages[error] ? <FormError className="mt-6">{companyErrorMessages[error]}</FormError> : null}
       {importedCount > 0 ? (
         <div className="calm-alert-success mt-6" role="status">
           {importedCount} {importedCount === 1 ? "XML importado" : "XML importados"}.{omittedCount > 0 ? ` ${omittedCount} omitidos por duplicado o formato inválido.` : ""}
@@ -216,7 +219,7 @@ export default async function CompanyPage({
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="calm-eyebrow">Perfil fiscal SAT</p>
-              <h3 className="mt-2 text-lg font-semibold">Datos para validar CFDI 4.0</h3>
+              <h2 className="mt-2 text-lg font-semibold">Datos para validar CFDI 4.0</h2>
             </div>
             <span className={`calm-badge ${fiscalProfileComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
               {fiscalProfileComplete ? "Perfil completo" : "Perfil incompleto"}
@@ -244,7 +247,8 @@ export default async function CompanyPage({
         <div className="calm-panel">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <h2 className="text-xl font-semibold tracking-[-0.02em]">Movimientos</h2>
+              <p className="calm-eyebrow">Libro de movimientos</p>
+              <h2 className="mt-2 text-xl font-semibold tracking-[-0.02em]">Ingresos y gastos</h2>
               <div className="mt-4"><MovementFiltersBubble companyId={company.id} movementFilter={movementFilter} /></div>
             </div>
             <div className="w-full sm:w-[220px]">
@@ -303,8 +307,28 @@ function FiscalValue({ label, value }: { label: string; value: string }) {
 function changeLabel(current: number, previous: number) {
   if (previous === 0) return current === 0 ? "Sin cambios vs mes anterior" : "Nuevo vs mes anterior";
 
-  const change = ((current - previous) / previous) * 100;
-  return `${change >= 0 ? "+" : ""}${change.toFixed(1)}% vs mes anterior`;
+  const change = (current - previous) / previous;
+  return `${change >= 0 ? "+" : ""}${formatPercent(change)} vs mes anterior`;
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("es-MX", {
+    maximumFractionDigits: 1,
+    minimumFractionDigits: 1,
+    style: "percent",
+  }).format(value);
+}
+
+function currentMonthInMexico() {
+  const parts = new Intl.DateTimeFormat("en", {
+    month: "2-digit",
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+  }).formatToParts(new Date());
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+
+  return `${year}-${month}`;
 }
 
 function getMonthBounds(month: string) {

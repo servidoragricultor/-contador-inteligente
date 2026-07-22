@@ -12,7 +12,7 @@ const errorMessages: Record<string, string> = {
   empresa: "No se pudo crear el cliente. Revisa nombre fiscal, RFC, codigo postal de 5 digitos y clave de regimen fiscal de 3 digitos.",
   "constancia-incompleta": "La constancia no contiene todos los datos necesarios. Completa manualmente nombre fiscal, RFC, regimen y codigo postal.",
   "constancia-inactiva": "La constancia indica que el contribuyente no esta ACTIVO en el padron del SAT.",
-  "constancia-invalida": "No pudimos leer la constancia. Verifica que sea el PDF original del SAT, con texto seleccionable y menor a 10 MB.",
+  "constancia-invalida": "No pudimos leer la constancia. Verifica que sea el PDF original del SAT, con texto seleccionable y menor a 10 MB.",
   "rfc-duplicado": "Ya existe un cliente activo con este RFC.",
   "sin-permiso": "No tienes permiso para eliminar este cliente.",
 };
@@ -79,18 +79,14 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
   return (
     <div className="ledger-layout">
       <AppSidebar workspaceName={user.name || "Despacho"} />
-      <main className="ledger-main">
+      <main className="ledger-main" id="main-content">
         <header className="calm-header">
           <div>
             <h1 className="calm-title">Clientes</h1>
             <p className="calm-subtitle">Administra perfiles fiscales y revisa pendientes desde un solo lugar.</p>
           </div>
-          <div className="w-full sm:w-auto sm:min-w-44"><CreateCompanyBubble /></div>
+          <div className="w-full sm:w-auto sm:min-w-44"><CreateCompanyBubble errorMessage={error ? errorMessages[error] : undefined} /></div>
         </header>
-
-        {error && errorMessages[error] ? (
-          <div className="calm-alert-error mt-6" role="alert">{errorMessages[error]}</div>
-        ) : null}
 
         <section className="mt-6 border-b border-slate-200 pb-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -100,7 +96,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
               <input type="hidden" name="orden" value={orden} />
               <label className="relative block">
                 <span className="sr-only">Buscar clientes</span>
-                <input className="calm-input pl-10" name="q" defaultValue={q} placeholder="Buscar por nombre, RFC o estado" />
+                <input autoComplete="off" className="calm-input pl-10" name="q" defaultValue={q} placeholder="Ej. nombre, RFC o estado…" type="search" />
                 <span className="calm-muted pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sm" aria-hidden="true">⌕</span>
               </label>
             </form>
@@ -140,12 +136,12 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                       : "Sin movimientos";
 
                     return (
-                      <tr key={company.id}>
+                      <tr className="calm-content-auto" key={company.id}>
                         <td data-label="Cliente"><Link className="font-medium text-slate-950 hover:underline" href={`/empresas/${company.id}`}>{company.tradeName || company.legalName}</Link></td>
                         <td data-label="RFC">{company.rfc || "Pendiente"}</td>
                         <td className="tabular-nums" data-label="Ingresos">{currency(income)}</td>
                         <td className="tabular-nums" data-label="Gastos">{currency(expense)}</td>
-                        <td data-label="Pendientes">{pendingReview}</td>
+                        <td className="tabular-nums" data-label="Pendientes">{pendingReview}</td>
                         <td data-label="Estado"><span className={`calm-badge ${pendingReview > 0 ? "bg-amber-50 text-amber-700 ring-1 ring-amber-100" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"}`}>{pendingReview > 0 ? "Atencion" : "Al dia"}</span></td>
                         <td data-label="Actualizacion">{lastUpdate}</td>
                         <td data-label="Acciones"><ClientCardMenu companyId={company.id} companyName={company.tradeName || company.legalName} hasAccess={company.members.length > 0} /></td>
@@ -174,7 +170,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
               const status = pendingReview > 0 ? "Atencion" : "Al dia";
 
               return (
-              <article key={company.id} className="calm-card calm-card-hover group relative flex min-h-[230px] flex-col p-5">
+              <article key={company.id} className="calm-card calm-card-hover calm-content-auto group relative flex min-h-[230px] flex-col p-5">
                 <div className="flex items-start justify-between gap-4">
                   <Link href={`/empresas/${company.id}`} className="min-w-0 flex-1 rounded-xl outline-offset-4">
                     <div className="flex items-center gap-3">
@@ -197,7 +193,7 @@ export default async function CompaniesPage({ searchParams }: { searchParams: Pr
                   <div className="grid gap-3 text-sm">
                     <div className="flex items-center justify-between gap-3">
                       <span className="calm-muted">Pendientes</span>
-                      <span className="font-semibold text-slate-950">{pendingReview}</span>
+                      <span className="font-semibold tabular-nums text-slate-950">{pendingReview}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3">
                       <span className="calm-muted">Estado</span>

@@ -1,24 +1,24 @@
 const PAYMENT_FORMS: Record<string, string> = {
   "01": "Efectivo",
   "02": "Cheque nominativo",
-  "03": "Transferencia electronica",
-  "04": "Tarjeta de credito",
-  "05": "Monedero electronico",
-  "06": "Dinero electronico",
+  "03": "Transferencia electrónica",
+  "04": "Tarjeta de crédito",
+  "05": "Monedero electrónico",
+  "06": "Dinero electrónico",
   "08": "Vales de despensa",
-  "12": "Dacion en pago",
-  "13": "Pago por subrogacion",
-  "14": "Pago por consignacion",
-  "15": "Condonacion",
-  "17": "Compensacion",
-  "23": "Novacion",
-  "24": "Confusion",
-  "25": "Remision de deuda",
-  "26": "Prescripcion o caducidad",
-  "27": "A satisfaccion del acreedor",
-  "28": "Tarjeta de debito",
+  "12": "Dación en pago",
+  "13": "Pago por subrogación",
+  "14": "Pago por consignación",
+  "15": "Condonación",
+  "17": "Compensación",
+  "23": "Novación",
+  "24": "Confusión",
+  "25": "Remisión de deuda",
+  "26": "Prescripción o caducidad",
+  "27": "A satisfacción del acreedor",
+  "28": "Tarjeta de débito",
   "29": "Tarjeta de servicios",
-  "30": "Aplicacion de anticipos",
+  "30": "Aplicación de anticipos",
   "31": "Intermediario de pagos",
   "99": "Por definir",
 };
@@ -54,9 +54,9 @@ export function paymentFormLabel(value?: string | null) {
 }
 
 export function paymentMethodLabel(value?: string | null) {
-  if (value === "PUE") return "PUE - Pago en una exhibicion";
+  if (value === "PUE") return "PUE - Pago en una exhibición";
   if (value === "PPD") return "PPD - Pago en parcialidades o diferido";
-  return value ? `${value} - Metodo SAT` : "Metodo no indicado";
+  return value ? `${value} - Método SAT` : "Método no indicado";
 }
 
 function normalize(value: string) {

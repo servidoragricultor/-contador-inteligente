@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import Link from "next/link";
 import { acceptClientInvitation } from "@/app/actions";
 import { prisma } from "@/lib/prisma";
+import { SubmitButton } from "@/components/submit-button";
+import { FormError } from "@/components/form-error";
 
 const invitationErrors: Record<string, string> = {
   correo: "Ese correo ya tiene una cuenta. Solicita una invitacion para otro correo.",
@@ -29,7 +31,7 @@ export default async function InvitationPage({
   const isAvailable = Boolean(invitation && !invitation.usedAt && invitation.expiresAt > new Date());
 
   return (
-    <main className="calm-page min-h-screen px-4 py-8 sm:px-6">
+    <main className="calm-page min-h-screen px-4 py-8 sm:px-6" id="main-content">
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-lg items-center">
         <section className="calm-panel w-full">
           <div className="ledger-workspace-mark">L</div>
@@ -41,14 +43,14 @@ export default async function InvitationPage({
               <p className="calm-muted mt-2 text-sm leading-6">
                 {invitation.company.tradeName || invitation.company.legalName} te invito a su espacio contable. Registra tu correo y elige una contrasena personal.
               </p>
-              {error && invitationErrors[error] ? <div className="calm-alert-error mt-5" role="alert">{invitationErrors[error]}</div> : null}
-              <form action={acceptClientInvitation} className="mt-6 grid gap-4">
+              {error && invitationErrors[error] ? <FormError className="mt-5" id="invitation-error">{invitationErrors[error]}</FormError> : null}
+              <form action={acceptClientInvitation} aria-describedby={error ? "invitation-error" : undefined} className="mt-6 grid gap-4">
                 <input name="token" type="hidden" value={token} />
                 <label className="calm-field">Tu nombre
                   <input autoComplete="name" className="calm-input font-normal" name="name" required />
                 </label>
                 <label className="calm-field">Correo
-                  <input autoCapitalize="none" autoComplete="email" className="calm-input font-normal" name="email" placeholder="tu@correo.com" required type="email" />
+                  <input autoCapitalize="none" autoComplete="email" className="calm-input font-normal" name="email" placeholder="Ej. tu@correo.com…" required spellCheck={false} type="email" />
                 </label>
                 <label className="calm-field">Elige una contrasena
                   <input autoComplete="new-password" className="calm-input font-normal" minLength={6} name="password" required type="password" />
@@ -57,7 +59,7 @@ export default async function InvitationPage({
                 <label className="calm-field">Confirma tu contrasena
                   <input autoComplete="new-password" className="calm-input font-normal" minLength={6} name="passwordConfirmation" required type="password" />
                 </label>
-                <button className="calm-button-primary mt-2 w-full" type="submit">Crear mi acceso</button>
+                <SubmitButton className="calm-button-primary mt-2 w-full" pendingLabel="Creando acceso…">Crear mi acceso</SubmitButton>
               </form>
             </>
           ) : (

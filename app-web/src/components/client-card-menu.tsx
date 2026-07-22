@@ -1,14 +1,18 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { createClientInvitation, deleteCompany } from "@/app/actions";
 import { InvitationLink } from "@/components/invitation-link";
+import { SubmitButton } from "@/components/submit-button";
+import { useDialogFocus } from "@/hooks/use-dialog-focus";
 
 export function ClientCardMenu({ companyId, companyName, hasAccess }: { companyId: string; companyName: string; hasAccess: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
   const [isAccessOpen, setIsAccessOpen] = useState(false);
   const [invitationState, invitationAction, isCreatingInvitation] = useActionState(createClientInvitation, null);
+  const dialogRef = useRef<HTMLFormElement>(null);
+  useDialogFocus(isAccessOpen, dialogRef);
 
   useEffect(() => {
     if (!isOpen && !isAccessOpen) return;
@@ -28,6 +32,7 @@ export function ClientCardMenu({ companyId, companyName, hasAccess }: { companyI
   return (
     <div className="relative">
       <button
+        aria-controls={`client-menu-${companyId}`}
         aria-expanded={isOpen}
         aria-label={`Acciones de ${companyName}`}
         className="calm-icon-button"
@@ -36,7 +41,7 @@ export function ClientCardMenu({ companyId, companyName, hasAccess }: { companyI
       >
         ⋯
       </button>
-      {isOpen ? <div className="absolute right-0 top-11 z-20 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-md">
+      {isOpen ? <div className="absolute right-0 top-11 z-20 w-44 rounded-xl border border-slate-200 bg-white p-2 shadow-md" id={`client-menu-${companyId}`}>
         {hasAccess ? (
           <span className="block px-3 py-2 text-sm font-medium text-emerald-700">Acceso activo</span>
         ) : (
@@ -55,7 +60,7 @@ export function ClientCardMenu({ companyId, companyName, hasAccess }: { companyI
           action={deleteCompany}
           onSubmit={(event) => {
             const confirmed = window.confirm(
-              `Estas seguro de eliminar el cliente "${companyName}"? Esta accion eliminara sus ingresos, gastos y XML registrados.`,
+              `¿Estás seguro de eliminar el cliente “${companyName}”? Esta acción eliminará sus ingresos, gastos y XML registrados.`,
             );
 
             if (!confirmed) {
@@ -64,19 +69,17 @@ export function ClientCardMenu({ companyId, companyName, hasAccess }: { companyI
           }}
         >
           <input type="hidden" name="companyId" value={companyId} />
-          <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-700 transition hover:bg-red-50" type="submit">
-            Eliminar
-          </button>
+          <SubmitButton className="w-full rounded-lg px-3 py-2 text-left text-sm text-red-700 transition hover:bg-red-50" pendingLabel="Eliminando…">Eliminar</SubmitButton>
         </form>
       </div> : null}
       {isAccessOpen ? createPortal(
-        <div className="calm-modal-backdrop" onClick={() => setIsAccessOpen(false)}>
+        <div className="calm-modal-backdrop">
           <form
             action={invitationAction}
             aria-labelledby="client-access-title"
             aria-modal="true"
             className="calm-modal w-[min(92vw,430px)]"
-            onClick={(event) => event.stopPropagation()}
+            ref={dialogRef}
             role="dialog"
           >
             <div className="flex items-start justify-between gap-4">
@@ -92,9 +95,9 @@ export function ClientCardMenu({ companyId, companyName, hasAccess }: { companyI
             <div className="mt-6 grid gap-4">
               {invitationState?.token ? <InvitationLink token={invitationState.token} /> : null}
               {invitationState?.error ? <div className="calm-alert-error" role="alert">{invitationState.error}</div> : null}
-              <div className="calm-soft-box text-sm leading-6 text-slate-700">El enlace funcionara una sola vez y vencera en 7 dias. Generar uno nuevo invalidara el anterior.</div>
+              <div className="calm-soft-box text-sm leading-6 text-slate-700">El enlace funcionará una sola vez y vencerá en 7&nbsp;días. Generar uno nuevo invalidará el anterior.</div>
               <button className="calm-button-primary w-full" disabled={isCreatingInvitation} type="submit">
-                {isCreatingInvitation ? "Generando..." : invitationState?.token ? "Generar otro enlace" : "Generar enlace"}
+                {isCreatingInvitation ? <span className="inline-flex items-center gap-2" role="status"><span aria-hidden="true" className="calm-spinner" />Generando enlace…</span> : invitationState?.token ? "Generar otro enlace" : "Generar enlace"}
               </button>
             </div>
           </form>

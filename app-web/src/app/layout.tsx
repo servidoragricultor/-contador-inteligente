@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   description: "Ingresos, gastos y XML para contadores y clientes.",
 };
 
+export const viewport: Viewport = {
+  themeColor: "#F5F6F3",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -22,7 +26,10 @@ export default function RootLayout({
       lang="es"
       className={`${inter.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <a className="calm-skip-link" href="#main-content">Saltar al contenido</a>
+        {children}
+      </body>
     </html>
   );
 }
